@@ -161,68 +161,47 @@
 </div>
 
 <script>
-    // ================= 配置 Supabase（请替换下面两个值） =================
-    var SUPABASE_URL = 'https://aqlsoomclgcgwpjoutjz.supabase.co';   // ⚠️ 替换
-    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbHNvb21jbGdjZ3dwam91dGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDEwNjYsImV4cCI6MjA5ODIxNzA2Nn0.j14ss-ijuzW5QayUjew_6htNoxLySy82cdvpqHJv6Nk';              // ⚠️ 替换
+    // ========== 配置 Supabase（请替换） ==========
+    const MY_SUPABASE_URL = 'https://aqlsoomclgcgwpjoutjz.supabase.co';
+    const MY_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbHNvb21jbGdjZ3dwam91dGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDEwNjYsImV4cCI6MjA5ODIxNzA2Nn0.j14ss-ijuzW5QayUjew_6htNoxLySy82cdvpqHJv6Nk';
+    const sb = window.supabase.createClient(MY_SUPABASE_URL, MY_SUPABASE_ANON_KEY);
 
-    // 使用 var 并检查是否已存在，避免重复声明错误
-    if (typeof supabase === 'undefined') {
-        var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // ========== 全局状态 ==========
+    let session = null;
+    let currentBook = null;
+    let currentCode = null;
+    let isAdmin = false;
+
+    // ========== 工具函数 ==========
+    function esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str || '';
+        return d.innerHTML;
     }
 
-    var session = null;
-    var currentBook = null;
-    var currentCode = null;
-    var isAdmin = false;
-
-    // ================= 登录 / 认证 =================
-    async function checkAuth() {
-        var { data: { session: s } } = await supabase.auth.getSession();
-        if (s) {
-            session = s;
-            document.getElementById('loginOverlay').classList.add('hidden');
-            document.getElementById('userStatus').innerText = '已登录：' + s.user.email;
-            loadBooks();
-            var params = new URLSearchParams(window.location.search);
-            var code = params.get('code');
-            if (code) { currentCode = code; loadCurrentBook(code); }
-        } else {
-            document.getElementById('loginOverlay').classList.remove('hidden');
-        }
-    }
-
-    window.login = async function() {
-        try {
-            var email = document.getElementById('loginEmail').value.trim();
-            var password = document.getElementById('loginPassword').value.trim();
-            if (!email || !password) return alert('请输入邮箱和密码');
-            var { error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) return alert('登录失败：' + error.message);
-            location.reload();
-        } catch (e) {
-            alert('登录出错，请查看控制台');
-            console.error(e);
-        }
-    };
-
-    checkAuth();
-
-    // ================= 加载图书 =================
+    // ========== 加载图书 ==========
     async function loadBooks() {
-        var { data, error } = await supabase.from('books').select('*').order('code');
+        const { data, error } = await sb.from('books').select('*').order('code');
         if (error) return console.error(error);
-        var tbody = document.querySelector('#booksTable tbody');
-        if (!data || !data.length) {
+        const tbody = document.querySelector('#booksTable tbody');
+        if (!data || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">暂无图书</td></tr>';
             return;
         }
-        tbody.innerHTML = data.map(function(b) {
-            return '<tr><td><strong>' + esc(b.code) + '</strong></td><td>' + esc(b.book_name) + '</td><td>' + esc(b.category || '—') + '</td><td>' + (b.status === '在馆' ? '<span class="badge badge-available">在馆</span>' : '<span class="badge badge-borrowed">借出</span>') + '</td><td>' + esc(b.borrower_name || '') + (b.borrower_phone ? ' ' + esc(b.borrower_phone) : '') + '</td><td>' + (b.due_date || '—') + '</td></tr>';
-        }).join('');
+        tbody.innerHTML = data.map(b => `
+            <tr>
+                <td><strong>${esc(b.code)}</strong></td>
+                <td>${esc(b.book_name)}</td>
+                <td>${esc(b.category || '—')}</td>
+                <td>${b.status === '在馆' ? '<span class="badge badge-available">在馆</span>' : '<span class="badge badge-borrowed">借出</span>'}</td>
+                <td>${esc(b.borrower_name || '')} ${b.borrower_phone ? esc(b.borrower_phone) : ''}</td>
+                <td>${b.due_date || '—'}</td>
+            </tr>
+        `).join('');
     }
 
     async function loadCurrentBook(code) {
-        var { data, error } = await supabase.from('books').select('*').eq('code', code).single();
+        const { data, error } = await sb.from('books').select('*').eq('code', code).single();
         if (error || !data) {
             document.getElementById('bookTitle').innerText = '未找到图书：' + code;
             document.getElementById('bookStatus').innerHTML = '';
@@ -232,7 +211,7 @@
         }
         currentBook = data;
         document.getElementById('bookTitle').innerText = data.book_name + ' (' + data.code + ')';
-        var statusEl = document.getElementById('bookStatus');
+        const statusEl = document.getElementById('bookStatus');
         if (data.status === '在馆') {
             statusEl.innerHTML = '<span class="badge badge-available">✅ 在馆</span>';
             document.getElementById('doBorrow').disabled = false;
@@ -246,19 +225,56 @@
         }
     }
 
-    // ================= 借书 / 还书（绑定事件） =================
+    // ========== 登录检查 ==========
+    async function checkAuth() {
+        const { data: { session: s } } = await sb.auth.getSession();
+        if (s) {
+            session = s;
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('userStatus').innerText = '已登录：' + s.user.email;
+            loadBooks();
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            if (code) { currentCode = code; loadCurrentBook(code); }
+        } else {
+            document.getElementById('loginOverlay').classList.remove('hidden');
+        }
+    }
+
+    // ========== 登录函数（挂载到window） ==========
+    window.login = async function() {
+        try {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            if (!email || !password) {
+                alert('请输入邮箱和密码');
+                return;
+            }
+            const { error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) {
+                alert('登录失败：' + error.message);
+                return;
+            }
+            location.reload();
+        } catch (e) {
+            alert('登录出错，请查看控制台');
+            console.error(e);
+        }
+    };
+
+    // ========== 借书 ==========
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('doBorrow').addEventListener('click', async function() {
-            if (!currentCode) return alert('请扫描图书');
-            var name = document.getElementById('borrowName').value.trim();
-            var phone = document.getElementById('borrowPhone').value.trim();
-            var date = document.getElementById('borrowDate').value;
+            if (!currentCode) return alert('请先扫描图书');
+            const name = document.getElementById('borrowName').value.trim();
+            const phone = document.getElementById('borrowPhone').value.trim();
+            const date = document.getElementById('borrowDate').value;
             if (!name || !phone) return alert('请填写姓名和电话');
             if (!date) return alert('请选择日期');
-            var dueDateObj = new Date(date);
+            const dueDateObj = new Date(date);
             dueDateObj.setDate(dueDateObj.getDate() + 14);
-            var dueDateStr = dueDateObj.toISOString().split('T')[0];
-            var { error } = await supabase
+            const dueDateStr = dueDateObj.toISOString().split('T')[0];
+            const { error } = await sb
                 .from('books')
                 .update({ status: '借出', borrower_name: name, borrower_phone: phone, borrow_date: date, due_date: dueDateStr })
                 .eq('code', currentCode)
@@ -268,7 +284,7 @@
                 else alert('借书失败：' + error.message);
                 return;
             }
-            await supabase.from('records').insert({
+            await sb.from('records').insert({
                 code: currentCode, book_name: currentBook.book_name,
                 borrower_name: name, borrower_phone: phone,
                 action: '借出', date: date, due_date: dueDateStr
@@ -279,16 +295,16 @@
 
         document.getElementById('doReturn').addEventListener('click', async function() {
             if (!currentCode) return;
-            var date = document.getElementById('borrowDate').value || new Date().toISOString().split('T')[0];
-            var { data: book } = await supabase.from('books').select('book_name, borrower_name, borrower_phone').eq('code', currentCode).single();
+            const date = document.getElementById('borrowDate').value || new Date().toISOString().split('T')[0];
+            const { data: book } = await sb.from('books').select('book_name, borrower_name, borrower_phone').eq('code', currentCode).single();
             if (!book) return alert('图书不存在');
-            var { error } = await supabase
+            const { error } = await sb
                 .from('books')
                 .update({ status: '在馆', borrower_name: '', borrower_phone: '', borrow_date: '', due_date: '' })
                 .eq('code', currentCode)
                 .eq('status', '借出');
             if (error) return alert('还书失败：' + error.message);
-            await supabase.from('records').insert({
+            await sb.from('records').insert({
                 code: currentCode, book_name: book.book_name,
                 borrower_name: book.borrower_name, borrower_phone: book.borrower_phone,
                 action: '归还', date: date
@@ -298,29 +314,27 @@
         });
     });
 
-    // ================= 导入 / 导出 =================
+    // ========== 导入导出 ==========
     window.importBooks = async function(input) {
-        var file = input.files[0];
+        const file = input.files[0];
         if (!file) return;
-        var reader = new FileReader();
+        const reader = new FileReader();
         reader.onload = async function(e) {
             try {
-                var wb = XLSX.read(e.target.result, { type: 'array' });
-                var ws = wb.Sheets[wb.SheetNames[0]];
-                var rows = XLSX.utils.sheet_to_json(ws);
-                var books = rows.map(function(r) {
-                    return {
-                        code: String(r.code).trim(),
-                        book_name: String(r.book_name).trim(),
-                        category: String(r.category || '').trim(),
-                        status: '在馆'
-                    };
-                }).filter(function(b) { return b.code && b.book_name; });
-                if (!books.length) throw new Error('未找到有效数据');
-                var { error } = await supabase.from('books').upsert(books, { onConflict: 'code' });
+                const wb = XLSX.read(e.target.result, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws);
+                const books = rows.map(r => ({
+                    code: String(r.code).trim(),
+                    book_name: String(r.book_name).trim(),
+                    category: String(r.category || '').trim(),
+                    status: '在馆'
+                })).filter(b => b.code && b.book_name);
+                if (books.length === 0) throw new Error('未找到有效数据');
+                const { error } = await sb.from('books').upsert(books, { onConflict: 'code' });
                 if (error) throw error;
                 document.getElementById('importResultTitle').innerText = '✅ 导入成功';
-                document.getElementById('importResultMsg').innerText = '成功导入 ' + books.length + ' 本图书';
+                document.getElementById('importResultMsg').innerText = `成功导入 ${books.length} 本图书`;
                 document.getElementById('importModal').classList.remove('hidden');
                 loadBooks();
             } catch(err) {
@@ -335,38 +349,48 @@
 
     window.exportBooks = async function() {
         if (!session) return alert('请先登录');
-        var { data, error } = await supabase.from('books').select('code, book_name, category, status, borrower_name, borrower_phone, borrow_date, due_date').order('code');
-        if (error) return alert('获取数据失败');
-        var headers = ['编号', '书名', '分类', '状态', '借阅人', '电话', '借书日期', '应还日期'];
-        var rows = data.map(function(b) { return [b.code, b.book_name, b.category, b.status, b.borrower_name, b.borrower_phone, b.borrow_date, b.due_date]; });
-        var wb = XLSX.utils.book_new();
-        var ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
+        const { data, error } = await sb.from('books').select('code, book_name, category, status, borrower_name, borrower_phone, borrow_date, due_date').order('code');
+        if (error) return alert('获取数据失败：' + error.message);
+        const headers = ['编号', '书名', '分类', '状态', '借阅人', '电话', '借书日期', '应还日期'];
+        const rows = data.map(b => [b.code, b.book_name, b.category, b.status, b.borrower_name, b.borrower_phone, b.borrow_date, b.due_date]);
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
         XLSX.utils.book_append_sheet(wb, ws, '图书库存');
         XLSX.writeFile(wb, '图书库存.xlsx');
     };
 
-    // ================= 借阅记录 / 逾期 =================
+    // ========== 借阅记录 ==========
     window.unlock = async function() {
         if (!session) return alert('请先登录');
         isAdmin = true;
         document.getElementById('lockArea').classList.add('hidden');
         document.getElementById('recordArea').classList.remove('hidden');
-        var { data, error } = await supabase.from('books').select('*').eq('status', '借出').order('code');
+        const { data, error } = await sb.from('books').select('*').eq('status', '借出').order('code');
         if (error) return console.error(error);
-        var tbody = document.querySelector('#recordsTable tbody');
-        if (!data || !data.length) {
+        const tbody = document.querySelector('#recordsTable tbody');
+        if (!data || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">当前没有借出记录</td></tr>';
         } else {
-            tbody.innerHTML = data.map(function(b) {
-                return '<tr><td>' + b.code + '</td><td>' + esc(b.book_name) + '</td><td>' + esc(b.borrower_name) + '</td><td>' + esc(b.borrower_phone) + '</td><td>' + b.borrow_date + '</td><td>' + b.due_date + '</td></tr>';
-            }).join('');
+            tbody.innerHTML = data.map(b => `
+                <tr>
+                    <td>${b.code}</td>
+                    <td>${esc(b.book_name)}</td>
+                    <td>${esc(b.borrower_name)}</td>
+                    <td>${esc(b.borrower_phone)}</td>
+                    <td>${b.borrow_date}</td>
+                    <td>${b.due_date}</td>
+                </tr>
+            `).join('');
         }
-        var today = new Date().toISOString().split('T')[0];
-        var { data: overdue } = await supabase.from('books').select('*').eq('status', '借出').lt('due_date', today);
-        if (overdue && overdue.length) {
-            document.getElementById('overdueList').innerHTML = overdue.map(function(b) {
-                return '<p>📕 <strong>' + b.book_name + '</strong> (' + b.code + ')<br>借阅人：' + b.borrower_name + ' ' + b.borrower_phone + '<br>应还日期：<span style="color:red;">' + b.due_date + '</span></p>';
-            }).join('');
+        // 检查逾期
+        const today = new Date().toISOString().split('T')[0];
+        const { data: overdue } = await sb.from('books').select('*').eq('status', '借出').lt('due_date', today);
+        if (overdue && overdue.length > 0) {
+            document.getElementById('overdueList').innerHTML = overdue.map(b => `
+                <p>📕 <strong>${esc(b.book_name)}</strong> (${b.code})<br>
+                借阅人：${esc(b.borrower_name)} ${esc(b.borrower_phone)}<br>
+                应还日期：<span style="color:red;">${b.due_date}</span></p>
+            `).join('');
             document.getElementById('overdueModal').classList.remove('hidden');
         }
     };
@@ -377,12 +401,19 @@
         document.getElementById('recordArea').classList.add('hidden');
     };
 
-    // ================= 工具函数 =================
-    function esc(str) { var d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
-    window.closeOverdue = function() { document.getElementById('overdueModal').classList.add('hidden'); };
-    window.closeImportModal = function() { document.getElementById('importModal').classList.add('hidden'); };
+    window.closeOverdue = function() {
+        document.getElementById('overdueModal').classList.add('hidden');
+    };
 
+    window.closeImportModal = function() {
+        document.getElementById('importModal').classList.add('hidden');
+    };
+
+    // ========== 初始化日期 ==========
     document.getElementById('borrowDate').value = new Date().toISOString().split('T')[0];
+
+    // ========== 启动 ==========
+    checkAuth();
 </script>
 </body>
 </html>
