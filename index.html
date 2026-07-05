@@ -7,42 +7,60 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #4a6cf7; --borrow: #f59e0b; --return: #10b981; --danger: #ef4444; }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
             font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background-image: url('bg.jpg');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            padding: 16px;
+            background: linear-gradient(135deg, #e0e7ff, #f0f4ff);
             min-height: 100vh;
-        }
-        .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
-        .card {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 12px;
             padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
         }
-        .church-header { text-align: center; padding: 10px 0; color: #fff; text-shadow: 2px 2px 6px rgba(0,0,0,0.5); }
-        .church-header h1 { font-size: 2.8rem; letter-spacing: 2px; }
-        h2 { font-size: 1.2rem; margin-bottom: 12px; color: #333; }
-        .flex-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .card {
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(8px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .church-header {
+            text-align: center;
+            color: #1e293b;
+            margin-bottom: 24px;
+        }
+        .church-header h1 { font-size: 2.4rem; }
+        h2 { font-size: 1.3rem; margin-bottom: 12px; color: #1e293b; }
+        .flex-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
         .form-group { flex: 1; min-width: 130px; }
-        label { font-size: 0.8rem; font-weight: 600; color: #555; display: block; margin-bottom: 4px; }
-        input, select { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95rem; }
-        button { padding: 10px 20px; border: none; border-radius: 20px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
-        .btn-borrow { background: var(--borrow); color: #fff;  margin-top: 12px; }
-        .btn-return { background: var(--return); color: #fff;  margin-top: 12px; }
-        .btn-primary { background: var(--primary); color: #fff; }
-        .btn-danger { background: var(--danger); color: #fff; }
-        .btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+        label { font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 4px; }
+        input, select { width: 100%; padding: 10px 12px; border: 2px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; transition: 0.2s; }
+        input:focus, select:focus { border-color: #4f46e5; outline: none; }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn-borrow { background: #f59e0b; color: #fff; }
+        .btn-return { background: #10b981; color: #fff; }
+        .btn-primary { background: #4f46e5; color: #fff; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-outline { background: transparent; color: #4f46e5; border: 2px solid #4f46e5; }
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
         th { background: #f8fafc; font-weight: 600; }
-        .badge { padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
+        .badge { padding: 2px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; }
         .badge-available { background: #d1fae5; color: #065f46; }
         .badge-borrowed { background: #fef3c7; color: #92400e; }
         .overlay {
@@ -51,49 +69,48 @@
             justify-content: center; z-index:999;
         }
         .modal {
-            background: #fff; border-radius: 12px; padding: 24px;
+            background: #fff; border-radius: 16px; padding: 30px;
             width: 90%; max-width: 450px; text-align: center;
         }
         .hidden { display: none; }
         .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
         .login-overlay {
             position: fixed; top:0; left:0; width:100%; height:100%;
-            background: rgba(0,0,0,0.7); display: flex; align-items: center;
+            background: rgba(0,0,0,0.6); display: flex; align-items: center;
             justify-content: center; z-index:1000;
         }
         .login-box {
-            background: #fff; border-radius: 12px; padding: 30px;
+            background: #fff; border-radius: 16px; padding: 30px;
             width: 90%; max-width: 400px;
         }
-        .login-box h2 { margin-bottom: 20px; }
+        .login-box h2 { margin-bottom: 16px; }
         .login-box input { margin-bottom: 12px; }
-        @media (max-width: 600px) { .church-header h1 { font-size: 1.5rem; } }
+        .status-text { font-size: 0.9rem; color: #475569; margin-top: 4px; }
     </style>
 </head>
 <body>
-
 <div id="loginOverlay" class="login-overlay">
     <div class="login-box">
         <h2>🔐 管理员登录</h2>
-        <p style="margin-bottom:12px; color:#666;">请使用 Supabase 账号登录</p>
-        <input type="email" id="loginEmail" placeholder="邮箱" style="width:100%; padding:10px; border:2px solid #ddd; border-radius:8px;">
-        <input type="password" id="loginPassword" placeholder="密码" style="width:100%; padding:10px; border:2px solid #ddd; border-radius:8px;">
-        <button class="btn-primary" onclick="window.login()" style="width:100%; margin-top:10px;">登录</button>
-        <p style="margin-top:12px; font-size:0.8rem; color:#999;">首次使用需在 Supabase 中创建账号</p>
+        <p style="margin-bottom:12px; color:#64748b;">使用 Supabase 账号登录</p>
+        <input type="email" id="loginEmail" placeholder="邮箱">
+        <input type="password" id="loginPassword" placeholder="密码">
+        <button class="btn-primary" onclick="window.login()" style="width:100%;">登录</button>
+        <p style="margin-top:12px; font-size:0.8rem; color:#94a3b8;">首次使用需在 Supabase 中创建账号</p>
     </div>
 </div>
 
 <div class="container">
     <div class="church-header">
         <h1>⛪ 维也纳基督教会</h1>
-        <p style="margin-top:5px; font-size:1.2rem;">图书借阅管理系统</p>
-        <p id="userStatus" style="font-size:0.9rem; color:#ddd; margin-top:4px;"></p>
+        <p style="font-size:1.1rem;">图书借阅管理系统</p>
+        <p id="userStatus" class="status-text"></p>
     </div>
 
     <div class="card">
         <h2>📖 当前图书：<span id="bookTitle">请扫描二维码</span></h2>
-        <p id="bookStatus" style="margin-bottom:10px;"></p>
-        <div class="flex-row" id="borrowForm">
+        <p id="bookStatus" style="margin:8px 0;"></p>
+        <div class="flex-row">
             <div class="form-group">
                 <label>姓名</label>
                 <input type="text" id="borrowName" placeholder="借书人姓名">
@@ -107,8 +124,8 @@
                 <input type="date" id="borrowDate">
             </div>
         </div>
-        <button class="btn-borrow" id="doBorrow" disabled>📤 借出此书（2周内还）</button>
-        <button class="btn-return hidden" id="doReturn" disabled>📥 归还此书</button>
+        <button class="btn-borrow" id="doBorrow" disabled>📤 借出（2周内还）</button>
+        <button class="btn-return hidden" id="doReturn" disabled>📥 归还</button>
     </div>
 
     <div class="card">
@@ -121,16 +138,16 @@
         </div>
         <div class="btn-row">
             <button class="btn-primary" onclick="location.reload()">🔄 刷新</button>
-            <button class="btn-primary" onclick="window.exportBooks()">📥 导出书单 Excel</button>
-            <button class="btn-outline" onclick="document.getElementById('importFileInput').click()">📤 上传书单导入</button>
+            <button class="btn-primary" onclick="window.exportBooks()">📥 导出 Excel</button>
+            <button class="btn-outline" onclick="document.getElementById('importFileInput').click()">📤 导入书单</button>
             <input type="file" id="importFileInput" accept=".csv,.xlsx" style="display:none;" onchange="window.importBooks(this)">
         </div>
     </div>
 
-    <div class="card" id="recordCard">
+    <div class="card">
         <div id="lockArea">
-            <h3>🔒 借阅记录（需管理员登录）</h3>
-            <p style="font-size:0.8rem; color:#999;">点击下方按钮解锁（需已登录）</p>
+            <h3>🔒 借阅记录</h3>
+            <p style="font-size:0.9rem; color:#64748b;">点击下方按钮查看（需登录）</p>
             <button class="btn-primary" onclick="window.unlock()">🔓 解锁</button>
         </div>
         <div id="recordArea" class="hidden">
@@ -144,6 +161,7 @@
     </div>
 </div>
 
+<!-- 逾期弹窗 -->
 <div id="overdueModal" class="overlay hidden">
     <div class="modal">
         <h3>⚠️ 逾期未还提醒</h3>
@@ -152,6 +170,7 @@
     </div>
 </div>
 
+<!-- 导入结果弹窗 -->
 <div id="importModal" class="overlay hidden">
     <div class="modal">
         <h3 id="importResultTitle">📤 导入结果</h3>
@@ -161,47 +180,66 @@
 </div>
 
 <script>
-    // ========== 配置 Supabase（请替换） ==========
-    const MY_SUPABASE_URL = 'https://aqlsoomclgcgwpjoutjz.supabase.co';
-    const MY_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbHNvb21jbGdjZ3dwam91dGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDEwNjYsImV4cCI6MjA5ODIxNzA2Nn0.j14ss-ijuzW5QayUjew_6htNoxLySy82cdvpqHJv6Nk';
-    const sb = window.supabase.createClient(MY_SUPABASE_URL, MY_SUPABASE_ANON_KEY);
+    // ================= 配置 Supabase（替换为你的真实值） =================
+    var SUPABASE_URL = 'https://bsedzjghssqjdirgdlmr.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzZWR6amdoc3NxamRpcmdkbG1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNzM4NjksImV4cCI6MjA5ODg0OTg2OX0.6pLxcXjHly7px4HMlNtY-pdeWQ6P-0kfKWsuaW8G_Bc';
 
-    // ========== 全局状态 ==========
-    let session = null;
-    let currentBook = null;
-    let currentCode = null;
-    let isAdmin = false;
+    // 避免重复声明
+    if (typeof window.supabaseClient === 'undefined') {
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    var supabase = window.supabaseClient;
 
-    // ========== 工具函数 ==========
-    function esc(str) {
-        const d = document.createElement('div');
-        d.textContent = str || '';
-        return d.innerHTML;
+    var session = null;
+    var currentBook = null;
+    var currentCode = null;
+    var isAdmin = false;
+
+    // ================= 登录 / 认证 =================
+    async function checkAuth() {
+        var { data: { session: s } } = await supabase.auth.getSession();
+        if (s) {
+            session = s;
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('userStatus').innerText = '已登录：' + s.user.email;
+            loadBooks();
+            var params = new URLSearchParams(window.location.search);
+            var code = params.get('code');
+            if (code) { currentCode = code; loadCurrentBook(code); }
+        } else {
+            document.getElementById('loginOverlay').classList.remove('hidden');
+        }
     }
 
-    // ========== 加载图书 ==========
+    window.login = async function() {
+        try {
+            var email = document.getElementById('loginEmail').value.trim();
+            var password = document.getElementById('loginPassword').value.trim();
+            if (!email || !password) return alert('请输入邮箱和密码');
+            var { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) return alert('登录失败：' + error.message);
+            location.reload();
+        } catch (e) { alert('登录出错，请查看控制台'); console.error(e); }
+    };
+
+    checkAuth();
+
+    // ================= 加载图书 =================
     async function loadBooks() {
-        const { data, error } = await sb.from('books').select('*').order('code');
+        var { data, error } = await supabase.from('books').select('*').order('code');
         if (error) return console.error(error);
-        const tbody = document.querySelector('#booksTable tbody');
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">暂无图书</td></tr>';
+        var tbody = document.querySelector('#booksTable tbody');
+        if (!data || !data.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">暂无图书</td></tr>';
             return;
         }
-        tbody.innerHTML = data.map(b => `
-            <tr>
-                <td><strong>${esc(b.code)}</strong></td>
-                <td>${esc(b.book_name)}</td>
-                <td>${esc(b.category || '—')}</td>
-                <td>${b.status === '在馆' ? '<span class="badge badge-available">在馆</span>' : '<span class="badge badge-borrowed">借出</span>'}</td>
-                <td>${esc(b.borrower_name || '')} ${b.borrower_phone ? esc(b.borrower_phone) : ''}</td>
-                <td>${b.due_date || '—'}</td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = data.map(function(b) {
+            return '<tr><td><strong>' + esc(b.code) + '</strong></td><td>' + esc(b.book_name) + '</td><td>' + esc(b.category || '—') + '</td><td>' + (b.status === '在馆' ? '<span class="badge badge-available">在馆</span>' : '<span class="badge badge-borrowed">借出</span>') + '</td><td>' + esc(b.borrower_name || '') + (b.borrower_phone ? ' ' + esc(b.borrower_phone) : '') + '</td><td>' + (b.due_date || '—') + '</td></tr>';
+        }).join('');
     }
 
     async function loadCurrentBook(code) {
-        const { data, error } = await sb.from('books').select('*').eq('code', code).single();
+        var { data, error } = await supabase.from('books').select('*').eq('code', code).single();
         if (error || !data) {
             document.getElementById('bookTitle').innerText = '未找到图书：' + code;
             document.getElementById('bookStatus').innerHTML = '';
@@ -211,7 +249,7 @@
         }
         currentBook = data;
         document.getElementById('bookTitle').innerText = data.book_name + ' (' + data.code + ')';
-        const statusEl = document.getElementById('bookStatus');
+        var statusEl = document.getElementById('bookStatus');
         if (data.status === '在馆') {
             statusEl.innerHTML = '<span class="badge badge-available">✅ 在馆</span>';
             document.getElementById('doBorrow').disabled = false;
@@ -225,56 +263,19 @@
         }
     }
 
-    // ========== 登录检查 ==========
-    async function checkAuth() {
-        const { data: { session: s } } = await sb.auth.getSession();
-        if (s) {
-            session = s;
-            document.getElementById('loginOverlay').classList.add('hidden');
-            document.getElementById('userStatus').innerText = '已登录：' + s.user.email;
-            loadBooks();
-            const params = new URLSearchParams(window.location.search);
-            const code = params.get('code');
-            if (code) { currentCode = code; loadCurrentBook(code); }
-        } else {
-            document.getElementById('loginOverlay').classList.remove('hidden');
-        }
-    }
-
-    // ========== 登录函数（挂载到window） ==========
-    window.login = async function() {
-        try {
-            const email = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
-            if (!email || !password) {
-                alert('请输入邮箱和密码');
-                return;
-            }
-            const { error } = await sb.auth.signInWithPassword({ email, password });
-            if (error) {
-                alert('登录失败：' + error.message);
-                return;
-            }
-            location.reload();
-        } catch (e) {
-            alert('登录出错，请查看控制台');
-            console.error(e);
-        }
-    };
-
-    // ========== 借书 ==========
+    // ================= 借书 / 还书 =================
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('doBorrow').addEventListener('click', async function() {
-            if (!currentCode) return alert('请先扫描图书');
-            const name = document.getElementById('borrowName').value.trim();
-            const phone = document.getElementById('borrowPhone').value.trim();
-            const date = document.getElementById('borrowDate').value;
+            if (!currentCode) return alert('请扫描图书');
+            var name = document.getElementById('borrowName').value.trim();
+            var phone = document.getElementById('borrowPhone').value.trim();
+            var date = document.getElementById('borrowDate').value;
             if (!name || !phone) return alert('请填写姓名和电话');
             if (!date) return alert('请选择日期');
-            const dueDateObj = new Date(date);
+            var dueDateObj = new Date(date);
             dueDateObj.setDate(dueDateObj.getDate() + 14);
-            const dueDateStr = dueDateObj.toISOString().split('T')[0];
-            const { error } = await sb
+            var dueDateStr = dueDateObj.toISOString().split('T')[0];
+            var { error } = await supabase
                 .from('books')
                 .update({ status: '借出', borrower_name: name, borrower_phone: phone, borrow_date: date, due_date: dueDateStr })
                 .eq('code', currentCode)
@@ -284,7 +285,7 @@
                 else alert('借书失败：' + error.message);
                 return;
             }
-            await sb.from('records').insert({
+            await supabase.from('records').insert({
                 code: currentCode, book_name: currentBook.book_name,
                 borrower_name: name, borrower_phone: phone,
                 action: '借出', date: date, due_date: dueDateStr
@@ -295,16 +296,16 @@
 
         document.getElementById('doReturn').addEventListener('click', async function() {
             if (!currentCode) return;
-            const date = document.getElementById('borrowDate').value || new Date().toISOString().split('T')[0];
-            const { data: book } = await sb.from('books').select('book_name, borrower_name, borrower_phone').eq('code', currentCode).single();
+            var date = document.getElementById('borrowDate').value || new Date().toISOString().split('T')[0];
+            var { data: book } = await supabase.from('books').select('book_name, borrower_name, borrower_phone').eq('code', currentCode).single();
             if (!book) return alert('图书不存在');
-            const { error } = await sb
+            var { error } = await supabase
                 .from('books')
                 .update({ status: '在馆', borrower_name: '', borrower_phone: '', borrow_date: '', due_date: '' })
                 .eq('code', currentCode)
                 .eq('status', '借出');
             if (error) return alert('还书失败：' + error.message);
-            await sb.from('records').insert({
+            await supabase.from('records').insert({
                 code: currentCode, book_name: book.book_name,
                 borrower_name: book.borrower_name, borrower_phone: book.borrower_phone,
                 action: '归还', date: date
@@ -314,27 +315,29 @@
         });
     });
 
-    // ========== 导入导出 ==========
+    // ================= 导入 / 导出 =================
     window.importBooks = async function(input) {
-        const file = input.files[0];
+        var file = input.files[0];
         if (!file) return;
-        const reader = new FileReader();
+        var reader = new FileReader();
         reader.onload = async function(e) {
             try {
-                const wb = XLSX.read(e.target.result, { type: 'array' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(ws);
-                const books = rows.map(r => ({
-                    code: String(r.code).trim(),
-                    book_name: String(r.book_name).trim(),
-                    category: String(r.category || '').trim(),
-                    status: '在馆'
-                })).filter(b => b.code && b.book_name);
-                if (books.length === 0) throw new Error('未找到有效数据');
-                const { error } = await sb.from('books').upsert(books, { onConflict: 'code' });
+                var wb = XLSX.read(e.target.result, { type: 'array' });
+                var ws = wb.Sheets[wb.SheetNames[0]];
+                var rows = XLSX.utils.sheet_to_json(ws);
+                var books = rows.map(function(r) {
+                    return {
+                        code: String(r.code).trim(),
+                        book_name: String(r.book_name).trim(),
+                        category: String(r.category || '').trim(),
+                        status: '在馆'
+                    };
+                }).filter(function(b) { return b.code && b.book_name; });
+                if (!books.length) throw new Error('未找到有效数据');
+                var { error } = await supabase.from('books').upsert(books, { onConflict: 'code' });
                 if (error) throw error;
                 document.getElementById('importResultTitle').innerText = '✅ 导入成功';
-                document.getElementById('importResultMsg').innerText = `成功导入 ${books.length} 本图书`;
+                document.getElementById('importResultMsg').innerText = '成功导入 ' + books.length + ' 本图书';
                 document.getElementById('importModal').classList.remove('hidden');
                 loadBooks();
             } catch(err) {
@@ -349,48 +352,38 @@
 
     window.exportBooks = async function() {
         if (!session) return alert('请先登录');
-        const { data, error } = await sb.from('books').select('code, book_name, category, status, borrower_name, borrower_phone, borrow_date, due_date').order('code');
-        if (error) return alert('获取数据失败：' + error.message);
-        const headers = ['编号', '书名', '分类', '状态', '借阅人', '电话', '借书日期', '应还日期'];
-        const rows = data.map(b => [b.code, b.book_name, b.category, b.status, b.borrower_name, b.borrower_phone, b.borrow_date, b.due_date]);
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        var { data, error } = await supabase.from('books').select('code, book_name, category, status, borrower_name, borrower_phone, borrow_date, due_date').order('code');
+        if (error) return alert('获取数据失败');
+        var headers = ['编号', '书名', '分类', '状态', '借阅人', '电话', '借书日期', '应还日期'];
+        var rows = data.map(function(b) { return [b.code, b.book_name, b.category, b.status, b.borrower_name, b.borrower_phone, b.borrow_date, b.due_date]; });
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
         XLSX.utils.book_append_sheet(wb, ws, '图书库存');
         XLSX.writeFile(wb, '图书库存.xlsx');
     };
 
-    // ========== 借阅记录 ==========
+    // ================= 借阅记录 / 逾期 =================
     window.unlock = async function() {
         if (!session) return alert('请先登录');
         isAdmin = true;
         document.getElementById('lockArea').classList.add('hidden');
         document.getElementById('recordArea').classList.remove('hidden');
-        const { data, error } = await sb.from('books').select('*').eq('status', '借出').order('code');
+        var { data, error } = await supabase.from('books').select('*').eq('status', '借出').order('code');
         if (error) return console.error(error);
-        const tbody = document.querySelector('#recordsTable tbody');
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">当前没有借出记录</td></tr>';
+        var tbody = document.querySelector('#recordsTable tbody');
+        if (!data || !data.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">当前没有借出记录</td></tr>';
         } else {
-            tbody.innerHTML = data.map(b => `
-                <tr>
-                    <td>${b.code}</td>
-                    <td>${esc(b.book_name)}</td>
-                    <td>${esc(b.borrower_name)}</td>
-                    <td>${esc(b.borrower_phone)}</td>
-                    <td>${b.borrow_date}</td>
-                    <td>${b.due_date}</td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = data.map(function(b) {
+                return '<tr><td>' + b.code + '</td><td>' + esc(b.book_name) + '</td><td>' + esc(b.borrower_name) + '</td><td>' + esc(b.borrower_phone) + '</td><td>' + b.borrow_date + '</td><td>' + b.due_date + '</td></tr>';
+            }).join('');
         }
-        // 检查逾期
-        const today = new Date().toISOString().split('T')[0];
-        const { data: overdue } = await sb.from('books').select('*').eq('status', '借出').lt('due_date', today);
-        if (overdue && overdue.length > 0) {
-            document.getElementById('overdueList').innerHTML = overdue.map(b => `
-                <p>📕 <strong>${esc(b.book_name)}</strong> (${b.code})<br>
-                借阅人：${esc(b.borrower_name)} ${esc(b.borrower_phone)}<br>
-                应还日期：<span style="color:red;">${b.due_date}</span></p>
-            `).join('');
+        var today = new Date().toISOString().split('T')[0];
+        var { data: overdue } = await supabase.from('books').select('*').eq('status', '借出').lt('due_date', today);
+        if (overdue && overdue.length) {
+            document.getElementById('overdueList').innerHTML = overdue.map(function(b) {
+                return '<p>📕 <strong>' + b.book_name + '</strong> (' + b.code + ')<br>借阅人：' + b.borrower_name + ' ' + b.borrower_phone + '<br>应还日期：<span style="color:red;">' + b.due_date + '</span></p>';
+            }).join('');
             document.getElementById('overdueModal').classList.remove('hidden');
         }
     };
@@ -401,19 +394,12 @@
         document.getElementById('recordArea').classList.add('hidden');
     };
 
-    window.closeOverdue = function() {
-        document.getElementById('overdueModal').classList.add('hidden');
-    };
+    // ================= 工具函数 =================
+    function esc(str) { var d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+    window.closeOverdue = function() { document.getElementById('overdueModal').classList.add('hidden'); };
+    window.closeImportModal = function() { document.getElementById('importModal').classList.add('hidden'); };
 
-    window.closeImportModal = function() {
-        document.getElementById('importModal').classList.add('hidden');
-    };
-
-    // ========== 初始化日期 ==========
     document.getElementById('borrowDate').value = new Date().toISOString().split('T')[0];
-
-    // ========== 启动 ==========
-    checkAuth();
 </script>
 </body>
 </html>
