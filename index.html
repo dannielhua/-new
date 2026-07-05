@@ -305,39 +305,54 @@
     };
 
     // ================= 导入 / 导出 =================
-    window.importBooks = async function(input) {
-        var file = input.files[0];
-        if (!file) return;
-        var reader = new FileReader();
-        reader.onload = async function(e) {
-            try {
-                var wb = XLSX.read(e.target.result, { type: 'array' });
-                var ws = wb.Sheets[wb.SheetNames[0]];
-                var rows = XLSX.utils.sheet_to_json(ws);
-                var books = rows.map(function(r) {
-                    return {
-                        code: String(r.code).trim(),
-                        book_name: String(r.book_name).trim(),
-                        category: String(r.category || '').trim(),
-                        status: '在馆'
-                    };
-                }).filter(function(b) { return b.code && b.book_name; });
-                if (!books.length) throw new Error('未找到有效数据');
-                var { error } = await supabase.from('books').upsert(books, { onConflict: 'code' });
-                if (error) throw error;
-                document.getElementById('importResultTitle').innerText = '✅ 导入成功';
-                document.getElementById('importResultMsg').innerText = '成功导入 ' + books.length + ' 本图书';
-                document.getElementById('importModal').classList.remove('hidden');
-                loadBooks();
-            } catch(err) {
-                document.getElementById('importResultTitle').innerText = '❌ 导入失败';
-                document.getElementById('importResultMsg').innerText = err.message;
-                document.getElementById('importModal').classList.remove('hidden');
+   window.importBooks = async function(input) {
+    var file = input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            var wb = XLSX.read(e.target.result, { type: 'array' });
+            var ws = wb.Sheets[wb.SheetNames[0]];
+            var rows = XLSX.utils.sheet_to_json(ws);
+            var books = rows.map(function(r) {
+                return {
+                    code: String(r.code).trim(),
+                    book_name: String(r.book_name).trim(),
+                    category: String(r.category || '').trim(),
+                    status: '在馆'
+                };
+            }).filter(function(b) { return b.code && b.book_name; });
+
+            // ========== 新增去重逻辑 ==========
+            var seen = {};
+            var uniqueBooks = [];
+            for (var i = 0; i < books.length; i++) {
+                var code = books[i].code;
+                if (!seen[code]) {
+                    seen[code] = true;
+                    uniqueBooks.push(books[i]);
+                }
             }
-        };
-        reader.readAsArrayBuffer(file);
-        input.value = '';
+            // ==================================
+
+            if (!uniqueBooks.length) throw new Error('未找到有效数据');
+
+            var { error } = await supabase.from('books').upsert(uniqueBooks, { onConflict: 'code' });
+            if (error) throw error;
+
+            document.getElementById('importResultTitle').innerText = '✅ 导入成功';
+            document.getElementById('importResultMsg').innerText = '成功导入 ' + uniqueBooks.length + ' 本图书（去重后）';
+            document.getElementById('importModal').classList.remove('hidden');
+            loadBooks();
+        } catch(err) {
+            document.getElementById('importResultTitle').innerText = '❌ 导入失败';
+            document.getElementById('importResultMsg').innerText = err.message;
+            document.getElementById('importModal').classList.remove('hidden');
+        }
     };
+    reader.readAsArrayBuffer(file);
+    input.value = '';
+};
 
     window.exportBooks = async function() {
         try {
