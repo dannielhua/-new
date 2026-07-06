@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>维也纳基督教会 · 图书借阅</title>
-    <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Excel 处理 -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- 二维码生成 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     <style>
         :root {
@@ -16,7 +13,7 @@
             --borrow: #f59e0b;
             --return: #10b981;
             --danger: #ef4444;
-            --card-bg: rgba(255, 255, 255, 0.9);
+            --card-bg: rgba(255, 255, 255, 0.92);
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
@@ -25,15 +22,36 @@
             background-size: cover;
             padding: 16px;
             min-height: 100vh;
+            display: flex;
+            justify-content: center;
         }
-        .container { max-width: 900px; margin: 0 auto; }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .sidebar {
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: sticky;
+            top: 16px;
+        }
         .card {
             background: var(--card-bg);
             border-radius: 12px;
             padding: 20px;
-            margin-bottom: 16px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(6px);
         }
         .church-header {
             text-align: center;
@@ -44,633 +62,649 @@
         .church-header h1 { font-size: 2.8rem; letter-spacing: 2px; }
         .church-header p { font-size: 1.2rem; margin-top: 5px; }
         .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 20px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 0.9rem;
-            background: var(--primary);
-            color: #fff;
-            transition: opacity 0.2s;
-            margin-top: 12px;
+            padding: 10px 20px; border: none; border-radius: 20px;
+            font-weight: 600; cursor: pointer; font-size: 0.9rem;
+            background: var(--primary); color: #fff;
+            transition: opacity 0.2s; margin-top: 12px;
         }
         .btn:hover { opacity: 0.9; }
         .btn-borrow { background: var(--borrow); }
         .btn-return { background: var(--return); }
         .btn-danger { background: var(--danger); }
         .btn-outline {
-            background: transparent;
-            color: var(--primary);
+            background: transparent; color: var(--primary);
             border: 2px solid var(--primary);
         }
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; font-weight: 600; margin-bottom: 4px; }
         .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 0.95rem;
+            width: 100%; padding: 10px; border: 2px solid #ddd;
+            border-radius: 8px; font-size: 0.95rem;
         }
         .flex-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
         .flex-row > * { flex: 1; min-width: 130px; }
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
         th { background: #f8fafc; font-weight: 600; }
-        .badge {
-            padding: 3px 8px;
-            border-radius: 10px;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
+        .badge { padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
         .badge-available { background: #d1fae5; color: #065f46; }
         .badge-borrowed { background: #fef3c7; color: #92400e; }
         .hidden { display: none !important; }
+        .float-btn {
+            position: fixed; bottom: 20px; right: 20px; z-index: 999;
+            background: var(--primary); color: #fff;
+            border-radius: 50%; width: 50px; height: 50px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .modal-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.5); display: flex; align-items: center;
+            justify-content: center; z-index: 1000;
+        }
+        .modal {
+            background: #fff; border-radius: 12px; padding: 24px;
+            width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto;
+        }
         .toast {
-            position: fixed; top: 20px; right: 20px;
-            background: #333; color: #fff;
-            padding: 12px 20px;
-            border-radius: 20px;
-            font-weight: 600;
-            z-index: 2000;
-            animation: fadeOut 3s forwards;
+            position: fixed; top: 20px; right: 20px; background: #333;
+            color: #fff; padding: 12px 20px; border-radius: 20px;
+            font-weight: 600; z-index: 2000; animation: fadeOut 3s forwards;
         }
         @keyframes fadeOut { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
-        .tab-nav {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        }
+        .tab-nav { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
         .tab-nav button {
-            padding: 8px 16px;
-            border: 2px solid #ddd;
-            border-radius: 20px;
-            background: #f8fafc;
-            cursor: pointer;
-            font-weight: 600;
+            padding: 8px 16px; border: 2px solid #ddd; border-radius: 20px;
+            background: #f8fafc; cursor: pointer; font-weight: 600;
         }
-        .tab-nav button.active {
-            background: var(--primary);
-            color: #fff;
-            border-color: var(--primary);
-        }
-        .qr-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin-top: 12px;
-        }
-        .qr-item {
-            text-align: center;
-            background: white;
-            padding: 8px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            width: 140px;
-        }
+        .tab-nav button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .qr-container { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; }
+        .qr-item { text-align: center; }
         .qr-item canvas { display: block; margin: 0 auto; }
-        .book-detail { margin-top: 16px; }
-        .book-detail .info { margin-bottom: 8px; }
-        .search-box { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        .search-box input { flex: 1; min-width: 200px; }
-        .category-nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .category-nav .cat-btn {
-            padding: 6px 14px;
-            border: 2px solid #ddd;
-            border-radius: 20px;
-            background: #f8fafc;
+        .sidebar-card {
             cursor: pointer;
-            font-weight: 500;
-            font-size: 0.85rem;
-            transition: 0.2s;
+            transition: transform 0.2s;
+            text-align: center;
+            padding: 24px 16px;
         }
-        .category-nav .cat-btn.active {
-            background: var(--primary);
-            color: #fff;
-            border-color: var(--primary);
+        .sidebar-card:hover { transform: translateY(-3px); }
+        .sidebar-card .icon { font-size: 2.5rem; margin-bottom: 8px; }
+        .sidebar-card h3 { margin: 8px 0 4px; }
+        .sidebar-card p { font-size: 0.8rem; color: #666; }
+        .search-box { margin-bottom: 16px; }
+        .category-section { margin-bottom: 24px; }
+        .category-section h3 {
+            background: #eef2ff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 1rem;
+            margin-bottom: 8px;
         }
-        .category-nav .cat-btn:hover {
-            transform: translateY(-2px);
+        .book-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 8px;
+            border-bottom: 1px dashed #eee;
         }
-        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-        @media (max-width: 600px) {
-            .church-header h1 { font-size: 1.8rem; }
+        .book-row:hover { background: #f8fafc; }
+        .book-row span { flex: 1; }
+        .book-row .code { font-weight: 600; color: var(--primary); }
+        @media (max-width: 800px) {
+            .container { flex-direction: column; }
+            .sidebar { width: 100%; position: static; }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="church-header">
-        <h1>⛪ 维也纳基督教会</h1>
-        <p>图书借阅管理系统</p>
-    </div>
-
-    <!-- 分类导航 + 搜索 -->
-    <div class="card">
-        <div class="category-nav" id="categoryNav"></div>
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="输入书名搜索...">
-            <button class="btn" onclick="searchBooks()">🔍</button>
+    <!-- 左侧主内容区 -->
+    <div class="main-content">
+        <div class="church-header">
+            <h1>⛪ 维也纳基督教会</h1>
+            <p>图书借阅管理系统</p>
         </div>
-    </div>
 
-    <!-- 图书列表 -->
-    <div class="card">
-        <h2>📚 图书库存</h2>
-        <div style="overflow-x:auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>编号</th>
-                        <th>书名</th>
-                        <th>分类</th>
-                        <th>状态</th>
-                        <th>借阅人</th>
-                        <th>应还日期</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="booksBody"></tbody>
-            </table>
-        </div>
-        <div class="toolbar">
-            <button class="btn" onclick="loadBooks()">🔄 刷新</button>
-            <button class="btn btn-outline" onclick="document.getElementById('importFileInput').click()">📤 导入 Excel</button>
-            <input type="file" id="importFileInput" accept=".csv,.xlsx" style="display:none;" onchange="doImport(this)">
-            <button class="btn" onclick="exportBooks()">📥 导出 Excel</button>
-            <button class="btn" onclick="showQRPage()">📱 生成二维码</button>
-        </div>
-    </div>
-
-    <!-- 借书模态框 -->
-    <div class="modal-overlay hidden" id="borrowModal">
-        <div class="modal">
-            <h3>📤 借出图书</h3>
-            <p id="borrowBookInfo"></p>
-            <div class="form-group">
-                <label>姓名</label>
-                <input type="text" id="borrowName" placeholder="您的姓名">
+        <!-- 动态内容区：显示单本书详情 或 图书全览 -->
+        <div id="dynamicContent" class="card">
+            <div id="bookDetailView" class="hidden">
+                <!-- 扫码后显示单本书信息 -->
             </div>
-            <div class="form-group">
-                <label>借书日期</label>
-                <input type="date" id="borrowDate">
+            <div id="bookListView">
+                <!-- 默认显示全览列表 -->
             </div>
-            <button class="btn btn-borrow" onclick="confirmBorrow()">确认借出</button>
-            <button class="btn btn-outline" onclick="closeBorrowModal()">取消</button>
         </div>
     </div>
 
-    <!-- 二维码展示模态框 -->
-    <div class="modal-overlay hidden" id="qrModal">
-        <div class="modal" style="max-width: 700px;">
-            <h3>📱 图书二维码</h3>
-            <p style="font-size:0.9rem; color:#666;">每个二维码包含图书编号，扫描后可快速跳转至该书详情</p>
-            <div class="qr-container" id="qrContainer"></div>
-            <button class="btn btn-outline" onclick="closeQRModal()">关闭</button>
+    <!-- 右侧边栏 -->
+    <div class="sidebar">
+        <div class="card sidebar-card" onclick="showNotice()">
+            <div class="icon">📖</div>
+            <h3>借还书须知</h3>
+            <p>规则与说明</p>
         </div>
-    </div>
-
-    <!-- 逾期提醒（自动弹出） -->
-    <div class="modal-overlay hidden" id="overdueModal">
-        <div class="modal">
-            <h3>⚠️ 逾期未还提醒</h3>
-            <div id="overdueList"></div>
-            <button class="btn" onclick="closeOverdue()">知道了</button>
+        <div class="card sidebar-card" onclick="switchToBookList()">
+            <div class="icon">📚</div>
+            <h3>图书查询</h3>
+            <p>全部藏书一览</p>
         </div>
-    </div>
-
-    <!-- 导入结果 -->
-    <div class="modal-overlay hidden" id="importModal">
-        <div class="modal">
-            <h3 id="importTitle">📤 导入结果</h3>
-            <p id="importMsg"></p>
-            <button class="btn" onclick="closeImportModal()">确定</button>
+        <div class="card sidebar-card" onclick="openAdmin()">
+            <div class="icon">⚙️</div>
+            <h3>管理</h3>
+            <p>管理员入口</p>
         </div>
     </div>
 </div>
 
+<!-- 借还书须知模态框 -->
+<div id="noticeModal" class="modal-overlay hidden">
+    <div class="modal">
+        <h2>📖 借还书须知</h2>
+        <div style="text-align:left; line-height:1.8;">
+            <h3>借书说明</h3>
+            <ol>
+                <li>请依次扫描每本图书上的二维码。</li>
+                <li>填写借阅人姓名及借书日期。</li>
+                <li>确认信息无误后，点击「借书」图标完成借阅登记。</li>
+            </ol>
+            <h3 style="margin-top:12px;">还书说明</h3>
+            <ol>
+                <li>请扫描需归还图书上的二维码。</li>
+                <li>填写借阅人姓名及还书日期。</li>
+                <li>确认信息无误后，点击「还书」图标完成归还登记。</li>
+            </ol>
+            <h3 style="margin-top:12px;">借阅期限</h3>
+            <p>每本图书的借阅期限为三个月。请于到期日前归还图书，以便其他读者借阅。</p>
+        </div>
+        <button class="btn" onclick="closeNotice()">关闭</button>
+    </div>
+</div>
+
+<!-- 管理员登录模态框 -->
+<div id="loginModal" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>🔑 管理员登录</h3>
+        <div class="form-group"><input type="password" id="loginPassword" placeholder="请输入管理员密码"></div>
+        <button class="btn" onclick="adminLogin()">登录</button>
+        <button class="btn btn-outline" onclick="closeLogin()">取消</button>
+    </div>
+</div>
+
+<!-- 管理员后台（全屏覆盖） -->
+<div id="adminView" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.98); z-index:2000; overflow-y:auto; padding:20px;">
+    <button class="btn btn-danger" style="float:right;" onclick="adminLogout()">退出</button>
+    <h2>📊 管理员后台</h2>
+    <div class="tab-nav" style="margin-top:10px;">
+        <button class="active" data-tab="books">📚 图书管理</button>
+        <button data-tab="records">📜 借阅历史</button>
+        <button data-tab="overdue">⚠️ 逾期未还</button>
+        <button data-tab="import">📤 导入 Excel</button>
+        <button data-tab="export">📥 导出 Excel</button>
+        <button data-tab="qrcode">📱 生成二维码</button>
+        <button data-tab="settings">⚙️ 系统设置</button>
+    </div>
+    <div id="adminContent"></div>
+</div>
+
 <script>
-    // ================= 配置 Supabase =================
-    const SUPABASE_URL = 'https://ervhqbfelryohfvyuaok.supabase.co';   // 请替换
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVydmhxYmZlbHJ5b2hmdnl1YW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTA5MTQsImV4cCI6MjA5ODg4NjkxNH0.z-FdF47zHB3ai0f1VylUgVbxWUwBZF7I0oY8NAwh2gw';              // 请替换
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // ===================== 配置 =====================
+    const SUPABASE_URL = 'https://ervhqbfelryohfvyuaok.supabase.co';      // 改这里
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVydmhxYmZlbHJ5b2hmdnl1YW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTA5MTQsImV4cCI6MjA5ODg4NjkxNH0.z-FdF47zHB3ai0f1VylUgVbxWUwBZF7I0oY8NAwh2gw';                     // 改这里
+    const DEFAULT_PASSWORD = 'admin123';
+    // =================================================
 
-    // ================= 固定分类 =================
-    const FIXED_CATEGORIES = [];
-    for (let i = 1; i <= 10; i++) FIXED_CATEGORIES.push('教会' + i);
+    const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let adminToken = localStorage.getItem('adminToken') || '';
+    let currentView = 'list'; // 'list' 或 'detail'
 
-    let allBooks = [];
-    let currentCategory = '全部';
-    let currentSearch = '';
-    let borrowTarget = null; // 当前借书的图书对象
-
-    // ================= DOM 引用 =================
-    const categoryNav = document.getElementById('categoryNav');
-    const booksBody = document.getElementById('booksBody');
-    const borrowModal = document.getElementById('borrowModal');
-    const borrowBookInfo = document.getElementById('borrowBookInfo');
-    const borrowName = document.getElementById('borrowName');
-    const borrowDate = document.getElementById('borrowDate');
-    const searchInput = document.getElementById('searchInput');
-
-    // ================= 工具函数 =================
-    function esc(s) {
-        const d = document.createElement('div');
-        d.textContent = s || '';
-        return d.innerHTML;
+    // 密码哈希（PBKDF2）
+    async function hashPassword(password) {
+        const encoder = new TextEncoder();
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+        const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, key, 256);
+        const hash = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+        return Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('') + ':' + hash;
+    }
+    async function verifyPassword(password, hashed) {
+        const [saltHex, hashHex] = hashed.split(':');
+        const salt = new Uint8Array(saltHex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+        const encoder = new TextEncoder();
+        const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+        const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, key, 256);
+        const newHash = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+        return newHash === hashHex;
     }
 
-    function showToast(msg, type = 'info') {
-        const el = document.createElement('div');
-        el.className = 'toast';
-        el.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#333';
-        el.textContent = msg;
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 3000);
-    }
-
-    // ================= 加载图书 =================
-    async function loadBooks() {
-        try {
-            const { data, error } = await supabase
-                .from('books')
-                .select('*')
-                .order('code');
-            if (error) throw error;
-            allBooks = data;
-            renderCategories();
-            renderBooks();
-            checkOverdue();
-        } catch (e) {
-            console.error('加载失败:', e);
-            showToast('加载数据失败，请刷新', 'error');
-        }
-    }
-
-    // ================= 渲染分类导航 =================
-    function renderCategories() {
-        const cats = ['全部', ...FIXED_CATEGORIES];
-        categoryNav.innerHTML = cats.map(cat =>
-            `<button class="cat-btn ${cat === currentCategory ? 'active' : ''}"
-                    onclick="selectCategory('${cat}')">${cat}</button>`
-        ).join('');
-    }
-
-    // ================= 选择分类 =================
-    window.selectCategory = function(cat) {
-        currentCategory = cat;
-        renderCategories();
-        renderBooks();
-    };
-
-    // ================= 搜索 =================
-    window.searchBooks = function() {
-        currentSearch = searchInput.value.trim().toLowerCase();
-        renderBooks();
-    };
-    searchInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') searchBooks();
-    });
-
-    // ================= 渲染图书表格 =================
-    function renderBooks() {
-        // 先按分类过滤（如果选中的是“全部”，则只显示属于教会1-10的书）
-        let filtered = allBooks;
-        if (currentCategory !== '全部') {
-            filtered = filtered.filter(b => b.category === currentCategory);
-        } else {
-            // “全部”只显示教会1-10分类的书，忽略其他分类（按需）
-            filtered = filtered.filter(b => FIXED_CATEGORIES.includes(b.category));
-        }
-        // 搜索过滤
-        if (currentSearch) {
-            filtered = filtered.filter(b => b.book_name.toLowerCase().includes(currentSearch));
-        }
-
-        if (filtered.length === 0) {
-            booksBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#aaa;">没有符合条件的图书</td></tr>';
-            return;
-        }
-
-        booksBody.innerHTML = filtered.map(b => {
-            const isAvailable = b.status === '在馆';
-            const statusBadge = isAvailable
-                ? '<span class="badge badge-available">在馆</span>'
-                : '<span class="badge badge-borrowed">借出</span>';
-            const actionBtn = isAvailable
-                ? `<button class="btn btn-borrow" style="padding:4px 12px;" onclick="openBorrowModal('${b.code}')">借出</button>`
-                : `<button class="btn btn-return" style="padding:4px 12px;" onclick="returnBook('${b.code}')">归还</button>`;
-            return `<tr>
-                <td><strong>${esc(b.code)}</strong></td>
-                <td>${esc(b.book_name)}</td>
-                <td>${esc(b.category || '—')}</td>
-                <td>${statusBadge}</td>
-                <td>${esc(b.borrower_name || '')}</td>
-                <td>${b.due_date || '—'}</td>
-                <td>${actionBtn}</td>
-            </tr>`;
-        }).join('');
-    }
-
-    // ================= 借书 =================
-    window.openBorrowModal = function(code) {
-        const book = allBooks.find(b => b.code === code);
-        if (!book) return showToast('图书不存在', 'error');
-        borrowTarget = book;
-        borrowBookInfo.textContent = `📕 ${book.book_name} (${book.code})`;
-        borrowName.value = '';
-        borrowDate.value = new Date().toISOString().split('T')[0];
-        borrowModal.classList.remove('hidden');
-    };
-
-    window.closeBorrowModal = function() {
-        borrowModal.classList.add('hidden');
-        borrowTarget = null;
-    };
-
-    window.confirmBorrow = async function() {
-        if (!borrowTarget) return;
-        const name = borrowName.value.trim();
-        const date = borrowDate.value;
-        if (!name) return showToast('请输入姓名', 'error');
-        if (!date) return showToast('请选择日期', 'error');
-
-        // 应还日期 = 借书日期 + 3个月（90天）
-        const due = new Date(date);
-        due.setDate(due.getDate() + 90);
-        const dueDate = due.toISOString().split('T')[0];
-
-        try {
-            const { error } = await supabase
-                .from('books')
-                .update({
-                    status: '借出',
-                    borrower_name: name,
-                    borrow_date: date,
-                    due_date: dueDate
-                })
-                .eq('code', borrowTarget.code)
-                .eq('status', '在馆'); // 乐观锁防止并发
-
-            if (error) {
-                if (error.message.includes('0 rows')) {
-                    showToast('此书可能已被他人借走', 'error');
-                } else {
-                    showToast('借书失败：' + error.message, 'error');
-                }
-                return;
-            }
-
-            // 插入记录（可选，用于历史）
-            await supabase.from('records').insert({
-                code: borrowTarget.code,
-                book_name: borrowTarget.book_name,
-                borrower_name: name,
-                borrower_phone: '', // 不收集电话
-                action: '借出',
-                date: date,
-                due_date: dueDate
-            });
-
-            showToast(`✅ 借书成功！应还日期：${dueDate}`, 'success');
-            closeBorrowModal();
-            loadBooks(); // 刷新列表
-        } catch (e) {
-            console.error(e);
-            showToast('借书出错', 'error');
-        }
-    };
-
-    // ================= 还书 =================
-    window.returnBook = async function(code) {
-        if (!confirm('确认归还此书吗？')) return;
-        const today = new Date().toISOString().split('T')[0];
-        try {
-            // 先获取当前借阅人信息（用于记录）
-            const { data: book } = await supabase
-                .from('books')
-                .select('book_name, borrower_name')
-                .eq('code', code)
-                .single();
-            if (!book) return showToast('图书不存在', 'error');
-
-            const { error } = await supabase
-                .from('books')
-                .update({
-                    status: '在馆',
-                    borrower_name: '',
-                    borrow_date: '',
-                    due_date: ''
-                })
-                .eq('code', code)
-                .eq('status', '借出');
-
-            if (error) {
-                showToast('还书失败：' + error.message, 'error');
-                return;
-            }
-
-            // 记录
-            await supabase.from('records').insert({
-                code: code,
-                book_name: book.book_name,
-                borrower_name: book.borrower_name,
-                borrower_phone: '',
-                action: '归还',
-                date: today
-            });
-
-            showToast('✅ 还书成功！', 'success');
-            loadBooks();
-        } catch (e) {
-            console.error(e);
-            showToast('还书出错', 'error');
-        }
-    };
-
-    // ================= 导入 Excel =================
-    window.doImport = async function(input) {
-        const file = input.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            try {
-                const wb = XLSX.read(e.target.result, { type: 'array' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(ws);
-                const books = rows.map(r => ({
-                    code: String(r.code).trim(),
-                    book_name: String(r.book_name).trim(),
-                    category: String(r.category || '').trim(),
-                    status: '在馆'
-                })).filter(b => b.code && b.book_name);
-
-                if (!books.length) throw new Error('未找到有效数据（需包含 code 和 book_name 列）');
-
-                // 去重
-                const seen = {};
-                const unique = [];
-                for (const b of books) {
-                    if (!seen[b.code]) {
-                        seen[b.code] = true;
-                        unique.push(b);
-                    }
-                }
-
-                const { error } = await supabase
-                    .from('books')
-                    .upsert(unique, { onConflict: 'code' });
-
-                if (error) throw error;
-
-                document.getElementById('importTitle').textContent = '✅ 导入成功';
-                document.getElementById('importMsg').textContent = `成功导入 ${unique.length} 本图书`;
-                document.getElementById('importModal').classList.remove('hidden');
-                loadBooks();
-            } catch (err) {
-                document.getElementById('importTitle').textContent = '❌ 导入失败';
-                document.getElementById('importMsg').textContent = err.message;
-                document.getElementById('importModal').classList.remove('hidden');
-            }
-        };
-        reader.readAsArrayBuffer(file);
-        input.value = '';
-    };
-
-    window.closeImportModal = function() {
-        document.getElementById('importModal').classList.add('hidden');
-    };
-
-    // ================= 导出 Excel =================
-    window.exportBooks = async function() {
-        try {
-            const { data, error } = await supabase
-                .from('books')
-                .select('code, book_name, category, status, borrower_name, borrow_date, due_date')
-                .order('code');
-            if (error) throw error;
-
-            const headers = ['编号', '书名', '分类', '状态', '借阅人', '借书日期', '应还日期'];
-            const rows = data.map(b => [
-                b.code, b.book_name, b.category, b.status,
-                b.borrower_name || '', b.borrow_date || '', b.due_date || ''
-            ]);
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-            XLSX.utils.book_append_sheet(wb, ws, '图书库存');
-            XLSX.writeFile(wb, '图书库存.xlsx');
-        } catch (e) {
-            showToast('导出失败：' + e.message, 'error');
-        }
-    };
-
-    // ================= 二维码生成 =================
-    window.showQRPage = async function() {
-        const modal = document.getElementById('qrModal');
-        const container = document.getElementById('qrContainer');
-        container.innerHTML = '<p style="color:#aaa;">生成中...</p>';
-        modal.classList.remove('hidden');
-
-        try {
-            const { data, error } = await supabase
-                .from('books')
-                .select('code, book_name')
-                .order('code');
-            if (error) throw error;
-
-            container.innerHTML = '';
-            const baseUrl = window.location.origin + window.location.pathname + '?code=';
-            for (const b of data) {
-                const div = document.createElement('div');
-                div.className = 'qr-item';
-                div.innerHTML = `<p style="font-size:0.8rem;font-weight:600;">${esc(b.code)}<br>${esc(b.book_name)}</p>`;
-                const canvas = document.createElement('canvas');
-                const content = baseUrl + b.code;
-                QRCode.toCanvas(canvas, content, { width: 120, margin: 1 }, err => {
-                    if (err) console.warn(err);
-                });
-                div.appendChild(canvas);
-                container.appendChild(div);
-            }
-        } catch (e) {
-            container.innerHTML = '<p style="color:red;">生成失败</p>';
-            console.error(e);
-        }
-    };
-
-    window.closeQRModal = function() {
-        document.getElementById('qrModal').classList.add('hidden');
-    };
-
-    // ================= 逾期提醒 =================
-    async function checkOverdue() {
-        const today = new Date().toISOString().split('T')[0];
-        const { data, error } = await supabase
-            .from('books')
-            .select('*')
-            .eq('status', '借出')
-            .lt('due_date', today);
-        if (error || !data || data.length === 0) return;
-
-        const list = document.getElementById('overdueList');
-        list.innerHTML = data.map(b =>
-            `<p>📕 <strong>${b.book_name}</strong> (${b.code})<br>借阅人：${b.borrower_name}<br>应还日期：<span style="color:red;">${b.due_date}</span></p>`
-        ).join('');
-        document.getElementById('overdueModal').classList.remove('hidden');
-    }
-
-    window.closeOverdue = function() {
-        document.getElementById('overdueModal').classList.add('hidden');
-    };
-
-    // ================= 处理 URL 参数（扫码跳转） =================
-    (function() {
-        const code = new URLSearchParams(window.location.search).get('code');
-        if (code) {
-            // 等页面加载完成后再处理
-            setTimeout(() => {
-                // 跳转到该书所在分类
-                const book = allBooks.find(b => b.code === code);
-                if (book && FIXED_CATEGORIES.includes(book.category)) {
-                    currentCategory = book.category;
-                    renderCategories();
-                    renderBooks();
-                    // 高亮该行（可加样式）
-                    const rows = document.querySelectorAll('#booksBody tr');
-                    rows.forEach(row => {
-                        if (row.textContent.includes(code)) {
-                            row.style.backgroundColor = '#fef9c3';
-                            setTimeout(() => row.style.backgroundColor = '', 3000);
-                        }
-                    });
-                } else {
-                    // 如果分类不在教会1-10，则切换到全部
-                    currentCategory = '全部';
-                    renderCategories();
-                    renderBooks();
-                }
-            }, 500);
+    // 初始化管理员密码
+    (async function init() {
+        const { data, error } = await mySupabase.from('settings').select('value').eq('key', 'admin_password').single();
+        if (!data) {
+            const hashed = await hashPassword(DEFAULT_PASSWORD);
+            await mySupabase.from('settings').insert({ key: 'admin_password', value: hashed });
         }
     })();
 
-    // ================= 初始化 =================
-    loadBooks();
-    // 设置默认日期
-    borrowDate.value = new Date().toISOString().split('T')[0];
+    // 工具函数
+    function showToast(msg, type='info') {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#333';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
 
-    // 关闭模态框点击遮罩
-    document.querySelectorAll('.modal-overlay').forEach(el => {
-        el.addEventListener('click', function(e) {
-            if (e.target === this) this.classList.add('hidden');
+    // API 封装
+    async function apiGet(url, auth=false) {
+        const headers = auth ? {'Authorization': 'Bearer '+adminToken} : {};
+        const res = await fetch('/api'+url, {headers}); // 注意：Supabase版不使用本地/api，需改为Supabase直连
+        // 由于我们是Supabase直连，这里需要调整，直接用mySupabase调用
+        // 为了方便，我们可以保留原有的Supabase调用方式，这里不再使用本地API。
+    }
+    // 因为已经是Supabase版，我们直接使用mySupabase操作数据库，不再需要本地API封装。
+    // 下面所有功能直接调用mySupabase.from()等方法。
+
+    // ===================== 视图切换 =====================
+    function switchToBookList() {
+        currentView = 'list';
+        document.getElementById('bookDetailView').classList.add('hidden');
+        document.getElementById('bookListView').classList.remove('hidden');
+        loadBookList();
+    }
+
+    // 加载图书全览列表（按分类分组，支持搜索）
+    async function loadBookList(searchTerm = '') {
+        try {
+            let query = mySupabase.from('books').select('*').order('code');
+            if (searchTerm) {
+                query = query.ilike('title', `%${searchTerm}%`);
+            }
+            const { data: books } = await query;
+            const categories = ['教会1','教会2','教会3','教会4','教会5','教会6','教会7','教会8'];
+            const grouped = {};
+            categories.forEach(cat => { grouped[cat] = []; });
+            books.forEach(b => {
+                const cat = b.category && categories.includes(b.category) ? b.category : '未分类';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(b);
+            });
+
+            let html = `
+                <div class="search-box">
+                    <input type="text" id="searchTitle" placeholder="🔍 输入书名搜索..." value="${searchTerm}" 
+                           onkeyup="if(event.key==='Enter') loadBookList(this.value)">
+                    <button class="btn" onclick="loadBookList(document.getElementById('searchTitle').value)">搜索</button>
+                </div>`;
+            for (const [cat, items] of Object.entries(grouped)) {
+                if (items.length === 0) continue;
+                html += `<div class="category-section"><h3>${cat} (${items.length}本)</h3>`;
+                items.forEach(b => {
+                    html += `<div class="book-row">
+                        <span class="code">${esc(b.code)}</span>
+                        <span>${esc(b.title)}</span>
+                        <span style="color:#666;">${esc(b.author)}</span>
+                        <span>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            document.getElementById('bookListView').innerHTML = html || '<p>暂无图书</p>';
+        } catch(e) { showToast('加载图书列表失败','error'); }
+    }
+
+    // 显示单本书详情（扫码后）
+    async function showBookDetail(code) {
+        if (!code) return;
+        const { data: book } = await mySupabase.from('books').select('*').eq('code', code).single();
+        if (!book) { showToast('图书不存在','error'); return; }
+        currentView = 'detail';
+        document.getElementById('bookListView').classList.add('hidden');
+        document.getElementById('bookDetailView').classList.remove('hidden');
+        let html = `<h2>📖 ${esc(book.title)}</h2>`;
+        html += `<p>编号：${esc(book.code)} | 作者：${esc(book.author)} | 分类：${esc(book.category)}</p>`;
+        if (book.status === 'available') {
+            html += `<span class="badge badge-available">✅ 可借</span>`;
+            html += `<div class="form-group" style="margin-top:12px;">
+                <input type="text" id="borrowName" placeholder="您的姓名">
+                <input type="date" id="borrowDate" value="${new Date().toISOString().split('T')[0]}">
+            </div>`;
+            html += `<button class="btn btn-borrow" onclick="doBorrow('${book.code}')">📤 借出</button>`;
+        } else {
+            html += `<span class="badge badge-borrowed">📖 已借出</span>`;
+            html += `<div class="form-group" style="margin-top:12px;">
+                <input type="text" id="returnName" placeholder="您的姓名">
+                <input type="date" id="returnDate" value="${new Date().toISOString().split('T')[0]}">
+            </div>`;
+            html += `<button class="btn btn-return" onclick="doReturn('${book.code}')">📥 还书</button>`;
+        }
+        document.getElementById('bookDetailView').innerHTML = html;
+    }
+
+    async function doBorrow(code) {
+        const name = document.getElementById('borrowName')?.value.trim();
+        const date = document.getElementById('borrowDate')?.value;
+        if (!name) { showToast('请填写姓名','error'); return; }
+        const due = new Date(date); due.setDate(due.getDate() + 90);
+        const dueDate = due.toISOString().split('T')[0];
+        const { error } = await mySupabase.from('books').update({ status: 'borrowed' }).eq('code', code);
+        if (error) { showToast('借书失败','error'); return; }
+        await mySupabase.from('borrow_records').insert({
+            book_code: code, book_name: '', // 书名可不填
+            borrower_name: name, borrower_phone: '',
+            borrow_date: date, due_date: dueDate
         });
+        showToast(`借书成功！应还日期：${dueDate}`, 'success');
+        // 刷新当前页面
+        if (currentView === 'detail') showBookDetail(code);
+        else switchToBookList();
+    }
+
+    async function doReturn(code) {
+        const name = document.getElementById('returnName')?.value.trim();
+        if (!name) { showToast('请填写姓名','error'); return; }
+        const date = document.getElementById('returnDate')?.value || new Date().toISOString().split('T')[0];
+        await mySupabase.from('books').update({ status: 'available' }).eq('code', code);
+        await mySupabase.from('borrow_records').update({ return_date: date })
+            .eq('book_code', code).is('return_date', null);
+        showToast('还书成功！','success');
+        if (currentView === 'detail') showBookDetail(code);
+        else switchToBookList();
+    }
+
+    // 右侧边栏功能
+    function showNotice() {
+        document.getElementById('noticeModal').classList.remove('hidden');
+    }
+    function closeNotice() {
+        document.getElementById('noticeModal').classList.add('hidden');
+    }
+
+    function openAdmin() {
+        if (adminToken) showAdminPanel();
+        else document.getElementById('loginModal').classList.remove('hidden');
+    }
+
+    async function adminLogin() {
+        const pwd = document.getElementById('loginPassword').value;
+        const { data } = await mySupabase.from('settings').select('value').eq('key', 'admin_password').single();
+        if (!data) return showToast('系统错误','error');
+        if (!(await verifyPassword(pwd, data.value))) return showToast('密码错误','error');
+        adminToken = 'valid';
+        localStorage.setItem('adminToken', adminToken);
+        document.getElementById('loginModal').classList.add('hidden');
+        showAdminPanel();
+    }
+
+    function adminLogout() {
+        adminToken = '';
+        localStorage.removeItem('adminToken');
+        document.getElementById('adminView').classList.add('hidden');
+        showToast('已退出','info');
+    }
+
+    function showAdminPanel() {
+        document.getElementById('adminView').classList.remove('hidden');
+        switchTab('books');
+    }
+
+    function closeLogin() { document.getElementById('loginModal').classList.add('hidden'); }
+
+    // 管理员标签切换
+    document.querySelector('#adminView .tab-nav').addEventListener('click', e => {
+        if (e.target.tagName === 'BUTTON') switchTab(e.target.dataset.tab);
     });
+
+    function switchTab(tab) {
+        document.querySelectorAll('#adminView .tab-nav button').forEach(b => b.classList.remove('active'));
+        document.querySelector(`#adminView .tab-nav button[data-tab="${tab}"]`)?.classList.add('active');
+        const container = document.getElementById('adminContent');
+        switch(tab) {
+            case 'books': loadBooksAdmin(); break;
+            case 'records': loadRecords(); break;
+            case 'overdue': loadOverdue(); break;
+            case 'import': showImport(); break;
+            case 'export': showExport(); break;
+            case 'qrcode': showQRCode(); break;
+            case 'settings': showSettings(); break;
+        }
+    }
+
+    // ---------- 管理员各项功能（与之前相同，略作调整）----------
+    async function loadBooksAdmin() {
+        const { data: books } = await mySupabase.from('books').select('*').order('code');
+        const { data: records } = await mySupabase.from('borrow_records').select('*').is('return_date', null);
+        const map = {};
+        if (records) records.forEach(r => { map[r.book_code] = r; });
+        let html = `<button class="btn" onclick="showAddForm()">➕ 新增图书</button>
+        <table style="margin-top:12px;"><thead><tr>
+            <th>编号</th><th>书名</th><th>作者</th><th>分类</th><th>状态</th><th>借阅人</th><th>借书日期</th><th>应还日期</th><th>操作</th>
+        </tr></thead><tbody>`;
+        books.forEach(b => {
+            const br = map[b.code] || {};
+            html += `<tr>
+                <td>${esc(b.code)}</td><td>${esc(b.title)}</td><td>${esc(b.author)}</td><td>${esc(b.category)}</td>
+                <td>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</td>
+                <td>${esc(br.borrower_name)}</td>
+                <td>${br.borrow_date||''}</td><td>${br.due_date||''}</td>
+                <td>
+                    <button class="btn btn-outline" style="padding:4px 8px;" onclick="editBook('${b.code}')">✏️</button>
+                    <button class="btn btn-danger" style="padding:4px 8px;" onclick="deleteBook('${b.code}')">🗑</button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('adminContent').innerHTML = html;
+    }
+
+    function showAddForm(book=null) {
+        const isEdit = !!book;
+        let html = `<h3>${isEdit?'编辑':'新增'}图书</h3>
+        <div class="form-group"><label>编号</label><input type="text" id="editCode" value="${isEdit?book.code:''}" ${isEdit?'disabled':''}></div>
+        <div class="form-group"><label>书名</label><input type="text" id="editTitle" value="${isEdit?book.title:''}"></div>
+        <div class="form-group"><label>作者</label><input type="text" id="editAuthor" value="${isEdit?book.author||'':''}"></div>
+        <div class="form-group"><label>分类</label>
+            <select id="editCategory">
+                ${['教会1','教会2','教会3','教会4','教会5','教会6','教会7','教会8'].map(c => 
+                    `<option value="${c}" ${(book&&book.category===c)?'selected':''}>${c}</option>`
+                ).join('')}
+            </select>
+        </div>
+        <div class="form-group"><label>ISBN</label><input type="text" id="editIsbn" value="${isEdit?book.isbn||'':''}"></div>
+        <button class="btn" onclick="saveBook('${isEdit?book.code:''}')">保存</button>
+        <button class="btn btn-outline" onclick="loadBooksAdmin()">取消</button>`;
+        document.getElementById('adminContent').innerHTML = html;
+    }
+
+    function editBook(code) {
+        mySupabase.from('books').select('*').eq('code', code).single().then(({data}) => showAddForm(data));
+    }
+
+    async function saveBook(originalCode) {
+        const code = document.getElementById('editCode').value.trim();
+        const data = {
+            title: document.getElementById('editTitle').value.trim(),
+            author: document.getElementById('editAuthor').value.trim(),
+            category: document.getElementById('editCategory').value,
+            isbn: document.getElementById('editIsbn').value.trim()
+        };
+        if (originalCode) {
+            await mySupabase.from('books').update(data).eq('code', originalCode);
+        } else {
+            data.code = code;
+            await mySupabase.from('books').insert(data);
+        }
+        showToast('保存成功','success');
+        loadBooksAdmin();
+    }
+
+    async function deleteBook(code) {
+        if (!confirm(`删除 ${code}？`)) return;
+        await mySupabase.from('books').delete().eq('code', code);
+        showToast('已删除','success');
+        loadBooksAdmin();
+    }
+
+    // 借阅历史
+    async function loadRecords() {
+        const { data } = await mySupabase.from('borrow_records').select('*').order('created_at', { ascending: false });
+        let html = `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>借书日期</th><th>应还日期</th><th>归还日期</th></tr></thead><tbody>`;
+        data.forEach(r => {
+            html += `<tr>
+                <td>${esc(r.book_code)}</td><td>${esc(r.book_name||'')}</td><td>${esc(r.borrower_name)}</td>
+                <td>${r.borrow_date}</td><td>${r.due_date}</td>
+                <td>${r.return_date||'<span style="color:#aaa">未还</span>'}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('adminContent').innerHTML = html;
+    }
+
+    // 逾期
+    async function loadOverdue() {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await mySupabase.from('borrow_records').select('*').is('return_date', null).lt('due_date', today);
+        let html = `<h3>逾期未还 (${data.length})</h3>`;
+        if (data.length === 0) html += '<p>无逾期</p>';
+        else {
+            html += '<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>应还日期</th></tr></thead><tbody>';
+            data.forEach(r => {
+                html += `<tr><td>${esc(r.book_code)}</td><td>${esc(r.book_name||'')}</td><td>${esc(r.borrower_name)}</td><td>${r.due_date}</td></tr>`;
+            });
+            html += '</tbody></table>';
+        }
+        document.getElementById('adminContent').innerHTML = html;
+    }
+
+    // 导入
+    function showImport() {
+        document.getElementById('adminContent').innerHTML = `
+            <h3>📤 导入 Excel / CSV</h3>
+            <input type="file" id="importFile" accept=".csv,.xlsx">
+            <button class="btn" onclick="doImport()">开始导入</button>
+            <div id="importResult"></div>`;
+    }
+
+    async function doImport() {
+        const file = document.getElementById('importFile').files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet);
+            let ok = 0, skip = 0;
+            for (const row of rows) {
+                const code = (row.code || row['编号'] || '').toString().trim();
+                const title = (row.title || row.book_name || row['书名'] || '').toString().trim();
+                if (!code || !title) { skip++; continue; }
+                let category = row.category || row['分类'] || '';
+                // 确保分类在预定义列表中
+                const validCategories = ['教会1','教会2','教会3','教会4','教会5','教会6','教会7','教会8'];
+                if (!validCategories.includes(category)) category = '未分类';
+                const { data: exist } = await mySupabase.from('books').select('id').eq('code', code).single();
+                if (exist) {
+                    await mySupabase.from('books').update({
+                        title, author: row.author || row['作者'] || '', category
+                    }).eq('code', code);
+                } else {
+                    await mySupabase.from('books').insert({ code, title, author: row.author || '', category });
+                }
+                ok++;
+            }
+            document.getElementById('importResult').innerHTML = `<p style="color:green">成功 ${ok} 条，跳过 ${skip} 条</p>`;
+            showToast('导入完成','success');
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // 导出
+    function showExport() {
+        document.getElementById('adminContent').innerHTML = `<h3>📥 导出图书库存</h3><button class="btn" onclick="doExport()">下载 Excel</button>`;
+    }
+
+    async function doExport() {
+        const { data: books } = await mySupabase.from('books').select('*').order('code');
+        const { data: records } = await mySupabase.from('borrow_records').select('*').is('return_date', null);
+        const map = {};
+        if (records) records.forEach(r => { map[r.book_code] = r; });
+        const ws_data = [['编号','书名','作者','分类','状态','借阅人','借书日期','应还日期']];
+        books.forEach(b => {
+            const br = map[b.code] || {};
+            ws_data.push([b.code, b.title, b.author, b.category,
+                b.status==='available'?'在馆':'借出',
+                br.borrower_name||'', br.borrow_date||'', br.due_date||'']);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '图书库存');
+        XLSX.writeFile(wb, '图书库存.xlsx');
+    }
+
+    // 生成二维码
+    function showQRCode() {
+        const savedUrl = localStorage.getItem('qrBaseUrl') || window.location.origin + '/?code=';
+        document.getElementById('adminContent').innerHTML = `
+            <h3>📱 生成图书二维码</h3>
+            <label><input type="checkbox" id="includeUrl"> 包含访问网址</label>
+            <input type="text" id="baseUrl" value="${savedUrl}" style="width:100%;margin:8px 0;">
+            <button class="btn" onclick="generateQRCodes()">生成所有图书二维码</button>
+            <div class="qr-container" id="qrContainer"></div>`;
+    }
+
+    async function generateQRCodes() {
+        const includeUrl = document.getElementById('includeUrl').checked;
+        const baseUrl = document.getElementById('baseUrl').value.trim();
+        if (baseUrl) localStorage.setItem('qrBaseUrl', baseUrl);
+        const { data: books } = await mySupabase.from('books').select('code,title').order('code');
+        const container = document.getElementById('qrContainer');
+        container.innerHTML = '';
+        books.forEach(b => {
+            const content = includeUrl ? baseUrl + b.code : b.code;
+            const div = document.createElement('div'); div.className = 'qr-item';
+            div.innerHTML = `<p>${esc(b.code)}<br>${esc(b.title)}</p>`;
+            const canvas = document.createElement('canvas');
+            QRCode.toCanvas(canvas, content, { width: 120, margin: 1 }, err => { if(err) console.warn(err); });
+            div.appendChild(canvas);
+            container.appendChild(div);
+        });
+    }
+
+    // 修改密码
+    function showSettings() {
+        document.getElementById('adminContent').innerHTML = `
+            <h3>⚙️ 修改管理员密码</h3>
+            <div class="form-group"><label>旧密码</label><input type="password" id="oldPwd"></div>
+            <div class="form-group"><label>新密码</label><input type="password" id="newPwd"></div>
+            <div class="form-group"><label>确认新密码</label><input type="password" id="confirmPwd"></div>
+            <button class="btn" onclick="changePwd()">修改密码</button>`;
+    }
+
+    async function changePwd() {
+        const old = document.getElementById('oldPwd').value;
+        const newPwd = document.getElementById('newPwd').value;
+        const confirmPwd = document.getElementById('confirmPwd').value;
+        if (!old || !newPwd) return showToast('请填写完整','error');
+        if (newPwd !== confirmPwd) return showToast('两次密码不一致','error');
+        const { data } = await mySupabase.from('settings').select('value').eq('key', 'admin_password').single();
+        const valid = await verifyPassword(old, data.value);
+        if (!valid) return showToast('旧密码错误','error');
+        const newHash = await hashPassword(newPwd);
+        await mySupabase.from('settings').update({ value: newHash }).eq('key', 'admin_password');
+        showToast('密码修改成功','success');
+        adminLogout();
+    }
+
+    // 初始化页面
+    (function initPage() {
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (code) {
+            showBookDetail(code);
+        } else {
+            switchToBookList();
+        }
+    })();
 </script>
 </body>
 </html>
