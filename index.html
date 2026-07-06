@@ -13,7 +13,7 @@
             --borrow: #f59e0b;
             --return: #10b981;
             --danger: #ef4444;
-            --card-bg: rgba(255, 255, 255, 0.92);
+            --card-bg: rgba(255, 255, 255, 0.75);
             --cat-colors: #ff7675, #fdcb6e, #55efc4, #74b9ff, #a29bfe, #fd79a8, #00b894, #6c5ce7, #b2bec3;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -43,14 +43,14 @@
             flex-direction: column;
             gap: 16px;
             position: sticky;
-            top: 60px; /* 向下移动了40px */
+            top: 60px;
         }
         .card {
             background: var(--card-bg);
             border-radius: 16px;
             padding: 24px;
             box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(10px);
         }
         .church-header {
             text-align: center;
@@ -58,8 +58,12 @@
             color: #fff;
             text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
         }
-        .church-header h1 { font-size: 2.8rem; letter-spacing: 3px; }
-        .church-header p { font-size: 1.1rem; margin-top: 6px; }
+        .church-header img {
+            max-width: 300px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+        .church-header p { font-size: 1.3rem; margin-top: 6px; }
         .btn {
             padding: 10px 20px; border: none; border-radius: 25px;
             font-weight: 600; cursor: pointer; font-size: 0.95rem;
@@ -73,7 +77,7 @@
         .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
         .form-group { margin-bottom: 16px; }
         .form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: #444; }
-        .form-group input { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 12px; font-size: 1rem; }
+        .form-group input { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 12px; font-size: 1rem; background: rgba(255,255,255,0.9); }
         .flex-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
         .badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
         .badge-available { background: #d1fae5; color: #065f46; }
@@ -87,15 +91,15 @@
         .tab-nav button { padding: 10px 18px; border: 2px solid #ddd; border-radius: 25px; background: #fff; cursor: pointer; font-weight: 600; }
         .tab-nav button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
         .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        .search-box input { flex: 1; padding: 12px; border-radius: 25px; border: 2px solid #e0e0e0; }
+        .search-box input { flex: 1; padding: 12px; border-radius: 25px; border: 2px solid #e0e0e0; background: rgba(255,255,255,0.9); }
         .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 16px 0; }
         .cat-card { border-radius: 10px; padding: 12px; text-align: center; font-weight: 600; color: #fff; cursor: pointer; transition: 0.2s; }
         .cat-card:hover { filter: brightness(0.95); transform: scale(1.02); }
         .category-section { margin-bottom: 24px; }
-        .category-section h3 { background: #eef2ff; padding: 8px 16px; border-radius: 6px; font-size: 1rem; margin-bottom: 8px; }
+        .category-section h3 { background: rgba(238, 242, 255, 0.8); padding: 8px 16px; border-radius: 6px; font-size: 1rem; margin-bottom: 8px; }
         .book-row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px dashed #eee; }
         .book-row span { flex: 1; }
-        .sidebar-card { cursor: pointer; transition: 0.2s; text-align: center; padding: 24px 16px; border-radius: 16px; background: var(--card-bg); backdrop-filter: blur(8px); }
+        .sidebar-card { cursor: pointer; transition: 0.2s; text-align: center; padding: 24px 16px; border-radius: 16px; background: var(--card-bg); backdrop-filter: blur(10px); }
         .sidebar-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.12); }
         .sidebar-card .icon { font-size: 2.4rem; margin-bottom: 8px; }
         .back-btn { cursor: pointer; color: var(--primary); font-weight: 600; }
@@ -110,8 +114,8 @@
 <div class="container">
     <div class="main-content">
         <div class="church-header">
-            <h1>⛪ 维也纳基督教会</h1>
-            <p>图书借阅管理系统</p>
+            <img src="logo.png" alt="维也纳基督教会">
+            <p>图书借阅</p>
         </div>
         <div class="card" id="dynamicContent"></div>
     </div>
@@ -167,7 +171,7 @@
     const DEFAULT_PASSWORD = 'admin123';
     const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let adminToken = localStorage.getItem('adminToken') || '';
-    let currentView = 'home'; // home / bookList / detail
+    let currentView = 'home';
 
     // 密码工具
     async function hashPassword(password) {
@@ -204,10 +208,9 @@
     const categories = ['教会1','教会2','教会3','教会4','教会5','教会6','教会7','教会8'];
     const catColors = ['#ff7675','#fdcb6e','#55efc4','#74b9ff','#a29bfe','#fd79a8','#00b894','#6c5ce7','#b2bec3'];
 
-    // ========== 首页（扫码提示 + 分类方块） ==========
+    // ========== 首页（分类方块，无提示文字） ==========
     async function showHome() {
         currentView = 'home';
-        // 获取分类统计
         const { data: books } = await mySupabase.from('books').select('category');
         const counts = {};
         categories.forEach(c => counts[c] = 0);
@@ -218,11 +221,6 @@
         });
 
         let html = `
-            <div style="text-align:center; padding:20px 0 10px;">
-                <div style="font-size:3rem;">📱</div>
-                <h2>请扫描图书二维码</h2>
-                <p style="color:#666; margin-bottom:20px;">扫描后将自动显示图书信息并进行借还操作</p>
-            </div>
             <h3 style="margin-bottom:12px;">📂 图书分类</h3>
             <div class="category-grid">
         `;
@@ -234,7 +232,7 @@
         document.getElementById('dynamicContent').innerHTML = html;
     }
 
-    // ========== 图书查询视图（支持直接进入某个分类） ==========
+    // ========== 图书查询视图 ==========
     async function switchToBookList(category = null) {
         currentView = 'bookList';
         const { data: books } = await mySupabase.from('books').select('*').order('code');
@@ -246,7 +244,6 @@
         if (searchTerm) {
             filtered = allBooks.filter(b => b.title.toLowerCase().includes(searchTerm.toLowerCase()));
         }
-        // 如果有指定分类，则只显示该分类
         if (selectedCategory) {
             if (selectedCategory === '未分类') {
                 filtered = filtered.filter(b => !categories.includes(b.category));
@@ -263,7 +260,6 @@
         });
 
         let html = '';
-        // 如果没有选定分类，显示搜索框和分类网格
         if (!selectedCategory) {
             html += `<div class="search-box">
                 <input type="text" id="searchTitle" placeholder="🔍 搜索书名..." onkeyup="if(event.key==='Enter') searchBooks()">
@@ -284,11 +280,9 @@
             </div>`;
         }
 
-        // 显示图书列表
         if (filtered.length === 0) {
             html += '<p style="color:#999;">暂无图书</p>';
         } else if (selectedCategory) {
-            // 选定分类时，直接列出
             html += '<table><thead><tr><th>编号</th><th>书名</th><th>作者</th><th>状态</th></tr></thead><tbody>';
             filtered.forEach(b => {
                 html += `<tr>
@@ -300,7 +294,6 @@
             });
             html += '</tbody></table>';
         } else {
-            // 未选定分类，按分类分组显示
             for (const cat of categories) {
                 const items = grouped[cat];
                 if (items.length === 0) continue;
@@ -411,7 +404,6 @@
     }
     function showAdminPanel() { document.getElementById('adminView').classList.remove('hidden'); switchTab('books'); }
 
-    // 管理员标签切换
     document.querySelector('#adminView .tab-nav').addEventListener('click', e => {
         if (e.target.tagName === 'BUTTON') switchTab(e.target.dataset.tab);
     });
@@ -469,7 +461,6 @@
     }
     async function deleteBook(code) { if (confirm(`删除 ${code}？`)) { await mySupabase.from('books').delete().eq('code', code); showToast('已删除','success'); loadBooksAdmin(); } }
 
-    // ---------- 管理员：借阅历史 ----------
     async function loadRecords() {
         const { data } = await mySupabase.from('borrow_records').select('*').order('created_at', { ascending: false });
         let html = `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>借书日期</th><th>应还日期</th><th>归还日期</th></tr></thead><tbody>`;
@@ -485,7 +476,6 @@
         document.getElementById('adminContent').innerHTML = html;
     }
 
-    // ---------- 管理员：导入 Excel ----------
     function showImport() {
         document.getElementById('adminContent').innerHTML = `
             <h3>📤 导入 Excel / CSV</h3>
@@ -520,7 +510,6 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ---------- 管理员：导出 Excel ----------
     function showExport() {
         document.getElementById('adminContent').innerHTML = `<h3>📥 导出图书库存</h3><button class="btn" onclick="doExport()">下载 Excel</button>`;
     }
@@ -539,7 +528,6 @@
         XLSX.writeFile(wb, '图书库存.xlsx');
     }
 
-    // ---------- 管理员：生成二维码 ----------
     function showQRCode() {
         const savedUrl = localStorage.getItem('qrBaseUrl') || window.location.origin + '/?code=';
         document.getElementById('adminContent').innerHTML = `
@@ -568,7 +556,6 @@
         });
     }
 
-    // ---------- 管理员：修改密码 ----------
     function showSettings() {
         document.getElementById('adminContent').innerHTML = `
             <h3>⚙️ 修改管理员密码</h3>
@@ -590,7 +577,6 @@
         adminLogout();
     }
 
-    // 页面初始化
     (function init() {
         const code = new URLSearchParams(window.location.search).get('code');
         if (code) {
