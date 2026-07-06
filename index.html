@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>维也纳基督教会 · 图书借阅</title>
+    <!-- 移除 html5-qrcode 库，保留其他库 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@1.4.4/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     <style>
@@ -111,16 +111,16 @@
         <p>图书借阅管理系统</p>
     </div>
 
-    <!-- 普通用户视图 -->
+    <!-- 普通用户视图（移除了扫码按钮） -->
     <div id="userView">
         <div class="card">
             <h2>📖 查询图书</h2>
             <div class="flex-row">
-                <div class="form-group" style="flex:2"><input type="text" id="scanInput" placeholder="输入/扫描图书编号"></div>
+                <div class="form-group" style="flex:2">
+                    <input type="text" id="scanInput" placeholder="输入图书编号 (如 BK000123)">
+                </div>
                 <button class="btn" onclick="manualLookup()">🔍 查询</button>
-                <button class="btn" id="scanBtn">📷 扫码</button>
             </div>
-            <div id="reader" style="width:100%; margin-top:10px; display:none;"></div>
             <div id="bookDetail" style="margin-top:16px;"></div>
         </div>
     </div>
@@ -160,10 +160,12 @@
 <script>
     // ===================== 配置 =====================
     const SUPABASE_URL = 'https://ervhqbfelryohfvyuaok.supabase.co';      // 改这里
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVydmhxYmZlbHJ5b2hmdnl1YW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTA5MTQsImV4cCI6MjA5ODg4NjkxNH0.z-FdF47zHB3ai0f1VylUgVbxWUwBZF7I0oY8NAwh2gw';        
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVydmhxYmZlbHJ5b2hmdnl1YW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTA5MTQsImV4cCI6MjA5ODg4NjkxNH0.z-FdF47zHB3ai0f1VylUgVbxWUwBZF7I0oY8NAwh2gw';                     // 改这里
+    const DEFAULT_PASSWORD = 'admin123';
+    // =================================================
+
     const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let adminToken = localStorage.getItem('adminToken') || '';
-    let qrScanner = null;
 
     // 密码哈希函数（PBKDF2）
     async function hashPassword(password) {
@@ -212,15 +214,6 @@
         return d.innerHTML;
     }
 
-    // 提取编号
-    function getCode(raw) {
-        if (raw.includes('?code=')) {
-            const url = new URL(raw);
-            return url.searchParams.get('code') || '';
-        }
-        return raw.trim();
-    }
-
     // 查询图书
     async function lookupBookByCode(code) {
         if (!code) { showToast('请输入编号', 'error'); return; }
@@ -233,8 +226,8 @@
     }
 
     function manualLookup() {
-        const code = getCode(document.getElementById('scanInput').value);
-        document.getElementById('scanInput').value = code;
+        const code = document.getElementById('scanInput').value.trim();
+        if (!code) return showToast('请输入编号', 'error');
         lookupBookByCode(code);
     }
 
@@ -284,28 +277,7 @@
         lookupBookByCode(code);
     }
 
-    // 扫码
-    document.getElementById('scanBtn').addEventListener('click', () => {
-        const reader = document.getElementById('reader');
-        if (!qrScanner) qrScanner = new Html5Qrcode('reader');
-        if (reader.style.display === 'none' || !reader.style.display) {
-            reader.style.display = 'block';
-            qrScanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 250 },
-                (decoded) => {
-                    const code = getCode(decoded);
-                    document.getElementById('scanInput').value = code;
-                    reader.style.display = 'none';
-                    qrScanner.stop().then(() => lookupBookByCode(code));
-                },
-                (err) => {}
-            ).catch(err => showToast('摄像头启动失败', 'error'));
-        } else {
-            reader.style.display = 'none';
-            qrScanner.stop();
-        }
-    });
-
-    // 页面加载自动查 URL 参数
+    // 页面加载自动从 URL 参数查询（手机扫码用）
     (function() {
         const code = new URLSearchParams(window.location.search).get('code');
         if (code) {
@@ -516,22 +488,16 @@
     }
 
     async function doExport() {
-        // 获取所有图书
         const { data: books } = await mySupabase.from('books').select('*').order('code');
-        // 获取当前未归还的借阅记录
         const { data: activeRecords } = await mySupabase.from('borrow_records')
             .select('*')
             .is('return_date', null);
 
-        // 建立 book_code -> 借阅信息的映射
         const borrowedMap = {};
         if (activeRecords) {
-            activeRecords.forEach(r => {
-                borrowedMap[r.book_code] = r;
-            });
+            activeRecords.forEach(r => { borrowedMap[r.book_code] = r; });
         }
 
-        // 构建 Excel 数据
         const ws_data = [['编号', '书名', '作者', '分类', '状态', '借阅人', '电话', '借书日期', '应还日期']];
         books.forEach(b => {
             const br = borrowedMap[b.code] || {};
@@ -556,11 +522,10 @@
 
     // ---------- 生成二维码（自动记忆网址）----------
     function showQRCode() {
-        // 从本地存储读取上次保存的网址，如果没有则使用当前页面地址
         const savedUrl = localStorage.getItem('qrBaseUrl') || window.location.origin + '/?code=';
         document.getElementById('adminContent').innerHTML = `
             <h3>📱 生成图书二维码</h3>
-            <p>二维码内容为图书编号，可配合网页内扫码使用。<br>如需打印带网址的二维码，请勾选“包含访问网址”。</p>
+            <p>二维码内容为图书编号，可配合手机相机扫描使用。<br>如需打印带网址的二维码，请勾选“包含访问网址”。</p>
             <label><input type="checkbox" id="includeUrl"> 包含访问网址</label>
             <input type="text" id="baseUrl" value="${savedUrl}" style="width:100%;margin:8px 0;">
             <button class="btn" onclick="generateQRCodes()">生成所有图书二维码</button>
@@ -570,12 +535,7 @@
     async function generateQRCodes() {
         const includeUrl = document.getElementById('includeUrl').checked;
         const baseUrl = document.getElementById('baseUrl').value.trim();
-        
-        // 保存网址到本地存储，下次自动填充
-        if (baseUrl) {
-            localStorage.setItem('qrBaseUrl', baseUrl);
-        }
-        
+        if (baseUrl) localStorage.setItem('qrBaseUrl', baseUrl);
         const { data: books } = await mySupabase.from('books').select('code,title').order('code');
         const container = document.getElementById('qrContainer');
         container.innerHTML = '';
