@@ -160,13 +160,10 @@
 <script>
     // ===================== 配置 =====================
     const SUPABASE_URL = 'https://ervhqbfelryohfvyuaok.supabase.co';      // 改这里
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVydmhxYmZlbHJ5b2hmdnl1YW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTA5MTQsImV4cCI6MjA5ODg4NjkxNH0.z-FdF47zHB3ai0f1VylUgVbxWUwBZF7I0oY8NAwh2gw';                     // 改这里
-    const DEFAULT_PASSWORD = 'admin123';
-    // =================================================
-
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVydmhxYmZlbHJ5b2hmdnl1YW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTA5MTQsImV4cCI6MjA5ODg4NjkxNH0.z-FdF47zHB3ai0f1VylUgVbxWUwBZF7I0oY8NAwh2gw';        
+    const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let adminToken = localStorage.getItem('adminToken') || '';
-    let html5QrCode;
+    let qrScanner = null;
 
     // 密码哈希函数（PBKDF2）
     async function hashPassword(password) {
@@ -191,17 +188,16 @@
         return newHash === hashHex;
     }
 
-    // ===================== 初始化管理员密码 =====================
-    async function initSettings() {
-        const { data, error } = await supabaseClient.from('settings').select('value').eq('key', 'admin_password').single();
+    // 初始化管理员密码
+    (async function init() {
+        const { data, error } = await mySupabase.from('settings').select('value').eq('key', 'admin_password').single();
         if (!data) {
             const hashed = await hashPassword(DEFAULT_PASSWORD);
-            await supabaseClient.from('settings').insert({ key: 'admin_password', value: hashed });
+            await mySupabase.from('settings').insert({ key: 'admin_password', value: hashed });
         }
-    }
-    initSettings();
+    })();
 
-    // ===================== 工具函数 =====================
+    // 工具函数
     function showToast(msg, type='info') {
         const toast = document.createElement('div');
         toast.className = 'toast';
@@ -210,41 +206,41 @@
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
-
-    function escapeHtml(str) {
+    function esc(s) {
         const d = document.createElement('div');
-        d.textContent = str || '';
+        d.textContent = s || '';
         return d.innerHTML;
     }
 
-    // ===================== 图书查询 =====================
-    function extractCode(input) {
-        if (input.includes('?code=')) {
-            const url = new URL(input);
+    // 提取编号
+    function getCode(raw) {
+        if (raw.includes('?code=')) {
+            const url = new URL(raw);
             return url.searchParams.get('code') || '';
         }
-        return input.trim();
+        return raw.trim();
     }
 
+    // 查询图书
     async function lookupBookByCode(code) {
         if (!code) { showToast('请输入编号', 'error'); return; }
-        const { data, error } = await supabaseClient.from('books').select('*').eq('code', code).single();
+        const { data, error } = await mySupabase.from('books').select('*').eq('code', code).single();
         if (error || !data) {
             document.getElementById('bookDetail').innerHTML = '<p style="color:red;">图书不存在</p>';
             return;
         }
-        displayBookDetail(data);
+        showBookDetail(data);
     }
 
     function manualLookup() {
-        const code = extractCode(document.getElementById('scanInput').value);
+        const code = getCode(document.getElementById('scanInput').value);
         document.getElementById('scanInput').value = code;
         lookupBookByCode(code);
     }
 
-    function displayBookDetail(book) {
-        let html = `<h3>${escapeHtml(book.title)}</h3>`;
-        html += `<p>编号：${escapeHtml(book.code)} | 作者：${escapeHtml(book.author)} | 分类：${escapeHtml(book.category)}</p>`;
+    function showBookDetail(book) {
+        let html = `<h3>${esc(book.title)}</h3>`;
+        html += `<p>编号：${esc(book.code)} | 作者：${esc(book.author)} | 分类：${esc(book.category)}</p>`;
         if (book.status === 'available') {
             html += `<span class="badge badge-available">✅ 可借</span>`;
             html += `<div class="form-group" style="margin-top:12px;">
@@ -252,24 +248,24 @@
                 <input type="tel" id="borrowPhone" placeholder="您的电话" style="margin-top:8px;">
                 <input type="date" id="borrowDate" value="${new Date().toISOString().split('T')[0]}" style="margin-top:8px;">
             </div>`;
-            html += `<button class="btn btn-borrow" onclick="borrowBook('${book.code}', '${escapeHtml(book.title)}')">📤 借出</button>`;
+            html += `<button class="btn btn-borrow" onclick="doBorrow('${book.code}', '${esc(book.title)}')">📤 借出</button>`;
         } else {
             html += `<span class="badge badge-borrowed">📖 已借出</span>`;
-            html += `<button class="btn btn-return" onclick="returnBook('${book.code}')">📥 还书</button>`;
+            html += `<button class="btn btn-return" onclick="doReturn('${book.code}')">📥 还书</button>`;
         }
         document.getElementById('bookDetail').innerHTML = html;
     }
 
-    async function borrowBook(code, title) {
+    async function doBorrow(code, title) {
         const name = document.getElementById('borrowName')?.value.trim();
         const phone = document.getElementById('borrowPhone')?.value.trim();
         const date = document.getElementById('borrowDate')?.value;
         if (!name || !phone) { showToast('请填写姓名和电话', 'error'); return; }
         const due = new Date(date); due.setDate(due.getDate() + 14);
         const dueDate = due.toISOString().split('T')[0];
-        const { error } = await supabaseClient.from('books').update({ status: 'borrowed' }).eq('code', code);
+        const { error } = await mySupabase.from('books').update({ status: 'borrowed' }).eq('code', code);
         if (error) { showToast('借书失败', 'error'); return; }
-        await supabaseClient.from('borrow_records').insert({
+        await mySupabase.from('borrow_records').insert({
             book_code: code, book_name: title,
             borrower_name: name, borrower_phone: phone,
             borrow_date: date, due_date: dueDate
@@ -278,41 +274,40 @@
         lookupBookByCode(code);
     }
 
-    async function returnBook(code) {
+    async function doReturn(code) {
         if (!confirm('确认归还此书？')) return;
         const today = new Date().toISOString().split('T')[0];
-        await supabaseClient.from('books').update({ status: 'available' }).eq('code', code);
-        await supabaseClient.from('borrow_records').update({ return_date: today })
+        await mySupabase.from('books').update({ status: 'available' }).eq('code', code);
+        await mySupabase.from('borrow_records').update({ return_date: today })
             .eq('book_code', code).is('return_date', null);
         showToast('还书成功！', 'success');
         lookupBookByCode(code);
     }
 
-    // ===================== 扫码 =====================
+    // 扫码
     document.getElementById('scanBtn').addEventListener('click', () => {
         const reader = document.getElementById('reader');
-        if (!html5QrCode) html5QrCode = new Html5Qrcode('reader');
+        if (!qrScanner) qrScanner = new Html5Qrcode('reader');
         if (reader.style.display === 'none' || !reader.style.display) {
             reader.style.display = 'block';
-            html5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: 250 },
-                (decodedText) => {
-                    const code = extractCode(decodedText);
+            qrScanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 250 },
+                (decoded) => {
+                    const code = getCode(decoded);
                     document.getElementById('scanInput').value = code;
                     reader.style.display = 'none';
-                    html5QrCode.stop().then(() => lookupBookByCode(code));
+                    qrScanner.stop().then(() => lookupBookByCode(code));
                 },
                 (err) => {}
             ).catch(err => showToast('摄像头启动失败', 'error'));
         } else {
             reader.style.display = 'none';
-            html5QrCode.stop();
+            qrScanner.stop();
         }
     });
 
-    // 页面加载自动查询（URL参数）
+    // 页面加载自动查 URL 参数
     (function() {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
+        const code = new URLSearchParams(window.location.search).get('code');
         if (code) {
             document.getElementById('scanInput').value = code;
             lookupBookByCode(code);
@@ -320,17 +315,16 @@
     })();
     document.getElementById('scanInput').addEventListener('keydown', e => { if (e.key === 'Enter') manualLookup(); });
 
-    // ===================== 管理员认证 =====================
+    // 管理员登录
     async function adminLogin() {
         const pwd = document.getElementById('loginPassword').value;
-        const { data, error } = await supabaseClient.from('settings').select('value').eq('key', 'admin_password').single();
+        const { data, error } = await mySupabase.from('settings').select('value').eq('key', 'admin_password').single();
         if (error || !data) return showToast('系统错误', 'error');
-        const valid = await verifyPassword(pwd, data.value);
-        if (!valid) return showToast('密码错误', 'error');
+        if (!(await verifyPassword(pwd, data.value))) return showToast('密码错误', 'error');
         adminToken = 'valid';
         localStorage.setItem('adminToken', adminToken);
         document.getElementById('loginModal').classList.add('hidden');
-        showAdminView();
+        showAdminPanel();
         showToast('登录成功', 'success');
     }
 
@@ -343,7 +337,7 @@
         showToast('已退出', 'info');
     }
 
-    function showAdminView() {
+    function showAdminPanel() {
         document.getElementById('userView').classList.add('hidden');
         document.getElementById('adminView').classList.remove('hidden');
         document.getElementById('adminFloatBtn').classList.add('hidden');
@@ -351,7 +345,7 @@
     }
 
     document.getElementById('adminFloatBtn').onclick = () => {
-        if (adminToken) showAdminView();
+        if (adminToken) showAdminPanel();
         else document.getElementById('loginModal').classList.remove('hidden');
     };
     function closeLogin() { document.getElementById('loginModal').classList.add('hidden'); }
@@ -371,29 +365,27 @@
             case 'overdue': loadOverdue(); break;
             case 'import': showImport(); break;
             case 'export': showExport(); break;
-            case 'qrcode': showQRCodeGenerator(); break;
+            case 'qrcode': showQRCode(); break;
             case 'settings': showSettings(); break;
         }
     }
 
     // ---------- 图书管理 ----------
     async function loadBooksAdmin() {
-        const { data: books } = await supabaseClient.from('books').select('*').order('code');
-        const { data: records } = await supabaseClient.from('borrow_records').select('*').is('return_date', null);
-        const borrowedMap = {};
-        if (records) records.forEach(r => { borrowedMap[r.book_code] = r; });
-
-        let html = `<button class="btn" onclick="showAddBookForm()">➕ 新增图书</button>
+        const { data: books } = await mySupabase.from('books').select('*').order('code');
+        const { data: records } = await mySupabase.from('borrow_records').select('*').is('return_date', null);
+        const map = {};
+        if (records) records.forEach(r => { map[r.book_code] = r; });
+        let html = `<button class="btn" onclick="showAddForm()">➕ 新增图书</button>
         <table style="margin-top:12px;"><thead><tr>
-            <th>编号</th><th>书名</th><th>作者</th><th>分类</th><th>状态</th>
-            <th>借阅人</th><th>电话</th><th>借书日期</th><th>应还日期</th><th>操作</th>
+            <th>编号</th><th>书名</th><th>作者</th><th>分类</th><th>状态</th><th>借阅人</th><th>电话</th><th>借书日期</th><th>应还日期</th><th>操作</th>
         </tr></thead><tbody>`;
         books.forEach(b => {
-            const br = borrowedMap[b.code] || {};
+            const br = map[b.code] || {};
             html += `<tr>
-                <td>${escapeHtml(b.code)}</td><td>${escapeHtml(b.title)}</td><td>${escapeHtml(b.author)}</td><td>${escapeHtml(b.category)}</td>
+                <td>${esc(b.code)}</td><td>${esc(b.title)}</td><td>${esc(b.author)}</td><td>${esc(b.category)}</td>
                 <td>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</td>
-                <td>${escapeHtml(br.borrower_name)}</td><td>${escapeHtml(br.borrower_phone)}</td>
+                <td>${esc(br.borrower_name)}</td><td>${esc(br.borrower_phone)}</td>
                 <td>${br.borrow_date||''}</td><td>${br.due_date||''}</td>
                 <td>
                     <button class="btn btn-outline" style="padding:4px 8px;" onclick="editBook('${b.code}')">✏️</button>
@@ -405,7 +397,7 @@
         document.getElementById('adminContent').innerHTML = html;
     }
 
-    function showAddBookForm(book=null) {
+    function showAddForm(book=null) {
         const isEdit = !!book;
         let html = `<h3>${isEdit?'编辑':'新增'}图书</h3>
         <div class="form-group"><label>编号</label><input type="text" id="editCode" value="${isEdit?book.code:''}" ${isEdit?'disabled':''}></div>
@@ -420,7 +412,7 @@
     }
 
     function editBook(code) {
-        supabaseClient.from('books').select('*').eq('code', code).single().then(({data}) => showAddBookForm(data));
+        mySupabase.from('books').select('*').eq('code', code).single().then(({data}) => showAddForm(data));
     }
 
     async function saveBook(originalCode) {
@@ -433,10 +425,10 @@
             isbn: document.getElementById('editIsbn').value.trim()
         };
         if (originalCode) {
-            await supabaseClient.from('books').update(data).eq('code', originalCode);
+            await mySupabase.from('books').update(data).eq('code', originalCode);
         } else {
             data.code = code;
-            await supabaseClient.from('books').insert(data);
+            await mySupabase.from('books').insert(data);
         }
         showToast('保存成功', 'success');
         loadBooksAdmin();
@@ -444,21 +436,19 @@
 
     async function deleteBook(code) {
         if (!confirm(`删除 ${code}？`)) return;
-        await supabaseClient.from('books').delete().eq('code', code);
+        await mySupabase.from('books').delete().eq('code', code);
         showToast('已删除', 'success');
         loadBooksAdmin();
     }
 
     // ---------- 借阅历史 ----------
     async function loadRecords() {
-        const { data } = await supabaseClient.from('borrow_records').select('*').order('created_at', { ascending: false });
+        const { data } = await mySupabase.from('borrow_records').select('*').order('created_at', { ascending: false });
         let html = `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>电话</th><th>借书日期</th><th>应还日期</th><th>归还日期</th></tr></thead><tbody>`;
         data.forEach(r => {
             html += `<tr>
-                <td>${escapeHtml(r.book_code)}</td><td>${escapeHtml(r.book_name)}</td>
-                <td>${escapeHtml(r.borrower_name)}</td><td>${escapeHtml(r.borrower_phone)}</td>
-                <td>${r.borrow_date}</td><td>${r.due_date}</td>
-                <td>${r.return_date || '<span style="color:#aaa">未还</span>'}</td>
+                <td>${esc(r.book_code)}</td><td>${esc(r.book_name)}</td><td>${esc(r.borrower_name)}</td><td>${esc(r.borrower_phone)}</td>
+                <td>${r.borrow_date}</td><td>${r.due_date}</td><td>${r.return_date||'<span style="color:#aaa">未还</span>'}</td>
             </tr>`;
         });
         html += '</tbody></table>';
@@ -468,33 +458,29 @@
     // ---------- 逾期 ----------
     async function loadOverdue() {
         const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabaseClient.from('borrow_records').select('*').is('return_date', null).lt('due_date', today);
+        const { data } = await mySupabase.from('borrow_records').select('*').is('return_date', null).lt('due_date', today);
         let html = `<h3>逾期未还 (${data.length})</h3>`;
         if (data.length === 0) html += '<p>无逾期</p>';
         else {
             html += '<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>电话</th><th>应还日期</th></tr></thead><tbody>';
             data.forEach(r => {
-                html += `<tr>
-                    <td>${escapeHtml(r.book_code)}</td><td>${escapeHtml(r.book_name)}</td>
-                    <td>${escapeHtml(r.borrower_name)}</td><td>${escapeHtml(r.borrower_phone)}</td>
-                    <td>${r.due_date}</td>
-                </tr>`;
+                html += `<tr><td>${esc(r.book_code)}</td><td>${esc(r.book_name)}</td><td>${esc(r.borrower_name)}</td><td>${esc(r.borrower_phone)}</td><td>${r.due_date}</td></tr>`;
             });
             html += '</tbody></table>';
         }
         document.getElementById('adminContent').innerHTML = html;
     }
 
-    // ---------- 导入 Excel ----------
+    // ---------- 导入 ----------
     function showImport() {
         document.getElementById('adminContent').innerHTML = `
             <h3>📤 导入 Excel / CSV</h3>
             <input type="file" id="importFile" accept=".csv,.xlsx">
-            <button class="btn" onclick="importBooks()">开始导入</button>
+            <button class="btn" onclick="doImport()">开始导入</button>
             <div id="importResult"></div>`;
     }
 
-    async function importBooks() {
+    async function doImport() {
         const file = document.getElementById('importFile').files[0];
         if (!file) return;
         const reader = new FileReader();
@@ -503,50 +489,80 @@
             const workbook = XLSX.read(data, { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(sheet);
-            let success = 0, skip = 0;
+            let ok = 0, skip = 0;
             for (const row of rows) {
                 const code = (row.code || row['编号'] || '').toString().trim();
                 const title = (row.title || row.book_name || row['书名'] || '').toString().trim();
                 if (!code || !title) { skip++; continue; }
-                const { data: exist } = await supabaseClient.from('books').select('id').eq('code', code).single();
+                const { data: exist } = await mySupabase.from('books').select('id').eq('code', code).single();
                 if (exist) {
-                    await supabaseClient.from('books').update({
-                        title, author: row.author || row['作者'] || '',
-                        category: row.category || row['分类'] || ''
+                    await mySupabase.from('books').update({
+                        title, author: row.author || row['作者'] || '', category: row.category || row['分类'] || ''
                     }).eq('code', code);
                 } else {
-                    await supabaseClient.from('books').insert({ code, title, author: row.author || '', category: row.category || '' });
+                    await mySupabase.from('books').insert({ code, title, author: row.author || '', category: row.category || '' });
                 }
-                success++;
+                ok++;
             }
-            document.getElementById('importResult').innerHTML = `<p style="color:green">成功 ${success} 条，跳过 ${skip} 条</p>`;
+            document.getElementById('importResult').innerHTML = `<p style="color:green">成功 ${ok} 条，跳过 ${skip} 条</p>`;
             showToast('导入完成', 'success');
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // ---------- 导出 Excel ----------
+    // ---------- 导出（包含借阅人信息）----------
     function showExport() {
-        document.getElementById('adminContent').innerHTML = `<h3>📥 导出图书库存</h3><button class="btn" onclick="exportBooks()">下载 Excel</button>`;
+        document.getElementById('adminContent').innerHTML = `<h3>📥 导出图书库存</h3><button class="btn" onclick="doExport()">下载 Excel</button>`;
     }
 
-    async function exportBooks() {
-        const { data: books } = await supabaseClient.from('books').select('code,title,author,category,status').order('code');
-        const ws_data = [['编号','书名','作者','分类','状态']];
-        books.forEach(b => ws_data.push([b.code, b.title, b.author, b.category, b.status==='available'?'在馆':'借出']));
+    async function doExport() {
+        // 获取所有图书
+        const { data: books } = await mySupabase.from('books').select('*').order('code');
+        // 获取当前未归还的借阅记录
+        const { data: activeRecords } = await mySupabase.from('borrow_records')
+            .select('*')
+            .is('return_date', null);
+
+        // 建立 book_code -> 借阅信息的映射
+        const borrowedMap = {};
+        if (activeRecords) {
+            activeRecords.forEach(r => {
+                borrowedMap[r.book_code] = r;
+            });
+        }
+
+        // 构建 Excel 数据
+        const ws_data = [['编号', '书名', '作者', '分类', '状态', '借阅人', '电话', '借书日期', '应还日期']];
+        books.forEach(b => {
+            const br = borrowedMap[b.code] || {};
+            ws_data.push([
+                b.code,
+                b.title,
+                b.author || '',
+                b.category || '',
+                b.status === 'available' ? '在馆' : '借出',
+                br.borrower_name || '',
+                br.borrower_phone || '',
+                br.borrow_date || '',
+                br.due_date || ''
+            ]);
+        });
+
         const ws = XLSX.utils.aoa_to_sheet(ws_data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, '图书库存');
         XLSX.writeFile(wb, '图书库存.xlsx');
     }
 
-    // ---------- 生成二维码 ----------
-    function showQRCodeGenerator() {
+    // ---------- 生成二维码（自动记忆网址）----------
+    function showQRCode() {
+        // 从本地存储读取上次保存的网址，如果没有则使用当前页面地址
+        const savedUrl = localStorage.getItem('qrBaseUrl') || window.location.origin + '/?code=';
         document.getElementById('adminContent').innerHTML = `
             <h3>📱 生成图书二维码</h3>
             <p>二维码内容为图书编号，可配合网页内扫码使用。<br>如需打印带网址的二维码，请勾选“包含访问网址”。</p>
             <label><input type="checkbox" id="includeUrl"> 包含访问网址</label>
-            <input type="text" id="baseUrl" placeholder="http://你的域名或IP:5002/?code=" style="width:100%;margin:8px 0;" value="${window.location.origin}/?code=">
+            <input type="text" id="baseUrl" value="${savedUrl}" style="width:100%;margin:8px 0;">
             <button class="btn" onclick="generateQRCodes()">生成所有图书二维码</button>
             <div class="qr-container" id="qrContainer"></div>`;
     }
@@ -554,15 +570,21 @@
     async function generateQRCodes() {
         const includeUrl = document.getElementById('includeUrl').checked;
         const baseUrl = document.getElementById('baseUrl').value.trim();
-        const { data: books } = await supabaseClient.from('books').select('code,title').order('code');
+        
+        // 保存网址到本地存储，下次自动填充
+        if (baseUrl) {
+            localStorage.setItem('qrBaseUrl', baseUrl);
+        }
+        
+        const { data: books } = await mySupabase.from('books').select('code,title').order('code');
         const container = document.getElementById('qrContainer');
         container.innerHTML = '';
         books.forEach(b => {
-            const qrContent = includeUrl ? baseUrl + b.code : b.code;
+            const content = includeUrl ? baseUrl + b.code : b.code;
             const div = document.createElement('div'); div.className = 'qr-item';
-            div.innerHTML = `<p>${escapeHtml(b.code)}<br>${escapeHtml(b.title)}</p>`;
+            div.innerHTML = `<p>${esc(b.code)}<br>${esc(b.title)}</p>`;
             const canvas = document.createElement('canvas');
-            QRCode.toCanvas(canvas, qrContent, { width: 120, margin: 1 }, err => { if(err) console.warn(err); });
+            QRCode.toCanvas(canvas, content, { width: 120, margin: 1 }, err => { if(err) console.warn(err); });
             div.appendChild(canvas);
             container.appendChild(div);
         });
@@ -575,20 +597,20 @@
             <div class="form-group"><label>旧密码</label><input type="password" id="oldPwd"></div>
             <div class="form-group"><label>新密码</label><input type="password" id="newPwd"></div>
             <div class="form-group"><label>确认新密码</label><input type="password" id="confirmPwd"></div>
-            <button class="btn" onclick="changePassword()">修改密码</button>`;
+            <button class="btn" onclick="changePwd()">修改密码</button>`;
     }
 
-    async function changePassword() {
+    async function changePwd() {
         const old = document.getElementById('oldPwd').value;
         const newPwd = document.getElementById('newPwd').value;
         const confirmPwd = document.getElementById('confirmPwd').value;
         if (!old || !newPwd) return showToast('请填写完整', 'error');
         if (newPwd !== confirmPwd) return showToast('两次密码不一致', 'error');
-        const { data } = await supabaseClient.from('settings').select('value').eq('key', 'admin_password').single();
+        const { data } = await mySupabase.from('settings').select('value').eq('key', 'admin_password').single();
         const valid = await verifyPassword(old, data.value);
         if (!valid) return showToast('旧密码错误', 'error');
         const newHash = await hashPassword(newPwd);
-        await supabaseClient.from('settings').update({ value: newHash }).eq('key', 'admin_password');
+        await mySupabase.from('settings').update({ value: newHash }).eq('key', 'admin_password');
         showToast('密码修改成功', 'success');
     }
 </script>
