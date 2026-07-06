@@ -86,13 +86,15 @@
         .tab-nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
         .tab-nav button { padding: 10px 18px; border: 2px solid #ddd; border-radius: 25px; background: #fff; cursor: pointer; font-weight: 600; }
         .tab-nav button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-        .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 10px; margin: 16px 0; }
-        .cat-card { border-radius: 10px; padding: 12px; text-align: center; font-weight: 600; color: #fff; cursor: pointer; transition: 0.2s; }
-        .cat-card:hover { filter: brightness(0.95); transform: scale(1.02); }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        .search-box input { flex: 1; padding: 12px; border-radius: 25px; border: 2px solid #e0e0e0; }
+        .category-section { margin-bottom: 24px; }
+        .category-section h3 { background: #eef2ff; padding: 8px 16px; border-radius: 6px; font-size: 1rem; margin-bottom: 8px; }
+        .book-row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px dashed #eee; }
+        .book-row span { flex: 1; }
         .sidebar-card { cursor: pointer; transition: 0.2s; text-align: center; padding: 24px 16px; border-radius: 16px; background: var(--card-bg); backdrop-filter: blur(8px); }
         .sidebar-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.12); }
         .sidebar-card .icon { font-size: 2.4rem; margin-bottom: 8px; }
-        .book-list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .back-btn { cursor: pointer; color: var(--primary); font-weight: 600; }
         @media (max-width: 800px) {
             .container { flex-direction: column; }
@@ -112,11 +114,12 @@
     </div>
     <div class="sidebar">
         <div class="sidebar-card" onclick="showNotice()"><div class="icon">📖</div><h3>借还书须知</h3><p>规则与说明</p></div>
-        <div class="sidebar-card" onclick="switchToCategoryView()"><div class="icon">📚</div><h3>图书查询</h3><p>全部藏书一览</p></div>
+        <div class="sidebar-card" onclick="switchToBookList()"><div class="icon">📚</div><h3>图书查询</h3><p>全部藏书一览</p></div>
         <div class="sidebar-card" onclick="openAdmin()"><div class="icon">⚙️</div><h3>管理</h3><p>管理员入口</p></div>
     </div>
 </div>
 
+<!-- 借还书须知弹窗 -->
 <div id="noticeModal" class="modal-overlay hidden">
     <div class="modal">
         <h2>📖 借还书须知</h2>
@@ -129,6 +132,7 @@
     </div>
 </div>
 
+<!-- 管理员登录弹窗 -->
 <div id="loginModal" class="modal-overlay hidden">
     <div class="modal">
         <h3>🔑 管理员登录</h3>
@@ -138,6 +142,7 @@
     </div>
 </div>
 
+<!-- 管理员后台 -->
 <div id="adminView" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.98); z-index:2000; overflow-y:auto; padding:24px;">
     <button class="btn btn-danger" style="float:right;" onclick="adminLogout()">退出</button>
     <h2>📊 管理员后台</h2>
@@ -159,9 +164,9 @@
     const DEFAULT_PASSWORD = 'admin123';
     const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let adminToken = localStorage.getItem('adminToken') || '';
-    let currentView = 'category'; // category / detail
+    let currentView = 'home'; // home / bookList / detail
 
-    // 密码工具（修复 encoder 错误）
+    // 密码工具
     async function hashPassword(password) {
         const encoder = new TextEncoder();
         const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -193,88 +198,85 @@
     }
     function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 
-    // 分类颜色映射
-    const catColors = ['#ff7675','#fdcb6e','#55efc4','#74b9ff','#a29bfe','#fd79a8','#00b894','#6c5ce7','#b2bec3'];
     const categories = ['教会1','教会2','教会3','教会4','教会5','教会6','教会7','教会8'];
 
-    // ========== 分类视图（图书查询） ==========
-    async function loadCategoryGrid() {
-        const { data: books } = await mySupabase.from('books').select('category');
-        const counts = {};
-        categories.forEach(c => counts[c] = 0);
-        let uncategorized = 0;
-        books.forEach(b => {
-            if (categories.includes(b.category)) counts[b.category]++;
-            else uncategorized++;
+    // ========== 首页（借还书提示） ==========
+    function showHome() {
+        currentView = 'home';
+        document.getElementById('dynamicContent').innerHTML = `
+            <div style="text-align:center; padding:40px 20px;">
+                <div style="font-size:4rem;">📱</div>
+                <h2 style="margin:16px 0;">请扫描图书二维码</h2>
+                <p style="color:#666;">扫描后将自动显示图书信息并进行借还操作</p>
+            </div>`;
+    }
+
+    // ========== 图书查询视图 ==========
+    async function switchToBookList() {
+        currentView = 'bookList';
+        const { data: books } = await mySupabase.from('books').select('*').order('code');
+        renderBookList(books, '');
+    }
+
+    function renderBookList(books, searchTerm) {
+        let filtered = books;
+        if (searchTerm) {
+            filtered = books.filter(b => b.title.toLowerCase().includes(searchTerm.toLowerCase()));
+        }
+        const grouped = {};
+        categories.forEach(c => grouped[c] = []);
+        let uncategorized = [];
+        filtered.forEach(b => {
+            if (categories.includes(b.category)) grouped[b.category].push(b);
+            else uncategorized.push(b);
         });
-        let html = `<div class="search-box" style="display:flex; gap:10px; margin-bottom:16px;">
-            <input type="text" id="searchTitle" placeholder="🔍 输入书名搜索..." style="flex:1; padding:12px; border-radius:25px; border:2px solid #e0e0e0;">
+
+        let html = `<div class="search-box">
+            <input type="text" id="searchTitle" placeholder="🔍 搜索书名..." value="${searchTerm}" onkeyup="if(event.key==='Enter') searchBooks()">
             <button class="btn" onclick="searchBooks()">搜索</button>
         </div>`;
-        html += '<div class="category-grid">';
-        categories.forEach((c, i) => {
-            html += `<div class="cat-card" style="background:${catColors[i]}" onclick="showCategoryBooks('${c}')">${c}<br><small>${counts[c]}本</small></div>`;
-        });
-        html += `<div class="cat-card" style="background:#b2bec3" onclick="showCategoryBooks('未分类')">未分类<br><small>${uncategorized}本</small></div>`;
-        html += '</div><div id="bookListContainer"></div>';
+        for (const cat of categories) {
+            const items = grouped[cat];
+            if (items.length === 0) continue;
+            html += `<div class="category-section"><h3>${cat} (${items.length}本)</h3>`;
+            items.forEach(b => {
+                html += `<div class="book-row">
+                    <span><strong>${esc(b.code)}</strong></span>
+                    <span>${esc(b.title)}</span>
+                    <span style="color:#555;">${esc(b.author)}</span>
+                    <span>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</span>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+        if (uncategorized.length > 0) {
+            html += `<div class="category-section"><h3>未分类 (${uncategorized.length}本)</h3>`;
+            uncategorized.forEach(b => {
+                html += `<div class="book-row">
+                    <span><strong>${esc(b.code)}</strong></span>
+                    <span>${esc(b.title)}</span>
+                    <span style="color:#555;">${esc(b.author)}</span>
+                    <span>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</span>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+        if (filtered.length === 0) html += '<p style="color:#999;">暂无图书</p>';
         document.getElementById('dynamicContent').innerHTML = html;
     }
 
-    async function showCategoryBooks(category) {
-        let query = mySupabase.from('books').select('*').order('code');
-        if (category === '未分类') {
-            const cats = categories.map(c => `'${c}'`).join(',');
-            query = query.or(`category.not.in.(${cats})`);
-        } else {
-            query = query.eq('category', category);
-        }
-        const { data: books } = await query;
-        const container = document.getElementById('bookListContainer');
-        let html = `<div class="book-list-header"><span class="back-btn" onclick="loadCategoryGrid()">← 返回分类</span><h3>${category} (${books.length}本)</h3></div>`;
-        if (books.length === 0) html += '<p style="color:#999;">暂无图书</p>';
-        else {
-            html += '<table><thead><tr><th>编号</th><th>书名</th><th>作者</th><th>状态</th></tr></thead><tbody>';
-            books.forEach(b => {
-                html += `<tr><td>${esc(b.code)}</td><td>${esc(b.title)}</td><td>${esc(b.author||'')}</td><td>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</td></tr>`;
-            });
-            html += '</tbody></table>';
-        }
-        container.innerHTML = html;
-    }
-
-    async function searchBooks() {
+    function searchBooks() {
         const term = document.getElementById('searchTitle').value.trim();
-        if (!term) return loadCategoryGrid();
-        const { data: books } = await mySupabase.from('books').select('*').ilike('title', `%${term}%`).order('code');
-        const container = document.getElementById('bookListContainer');
-        let html = `<div class="book-list-header"><span class="back-btn" onclick="loadCategoryGrid()">← 返回分类</span><h3>搜索结果 (${books.length}本)</h3></div>`;
-        if (books.length === 0) html += '<p style="color:#999;">未找到相关图书</p>';
-        else {
-            html += '<table><thead><tr><th>编号</th><th>书名</th><th>作者</th><th>状态</th></tr></thead><tbody>';
-            books.forEach(b => {
-                html += `<tr><td>${esc(b.code)}</td><td>${esc(b.title)}</td><td>${esc(b.author||'')}</td><td>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</td></tr>`;
-            });
-            html += '</tbody></table>';
-        }
-        container.innerHTML = html;
+        mySupabase.from('books').select('*').order('code').then(({data}) => renderBookList(data, term));
     }
 
-    function switchToCategoryView() {
-        currentView = 'category';
-        loadCategoryGrid();
-    }
-
-    // ========== 单本书详情（扫码后） ==========
+    // ========== 扫码后图书详情 ==========
     async function showBookDetail(code) {
         currentView = 'detail';
         const { data: book } = await mySupabase.from('books').select('*').eq('code', code).single();
         if (!book) { showToast('图书不存在','error'); return; }
         let html = `<h2>📖 ${esc(book.title)}</h2>`;
-        html += `<p style="color:#555;">编号：${esc(book.code)} | 作者：${esc(book.author)}</p>`;
-        // 显示分类色块
-        const catIndex = categories.indexOf(book.category);
-        const color = catIndex >= 0 ? catColors[catIndex] : '#b2bec3';
-        html += `<div style="display:inline-block; padding:6px 16px; border-radius:20px; color:#fff; background:${color}; margin:8px 0;">${esc(book.category)}</div>`;
+        html += `<p style="color:#555;">编号：${esc(book.code)} | 作者：${esc(book.author)} | 分类：${esc(book.category)}</p>`;
         if (book.status === 'available') {
             html += `<span class="badge badge-available">✅ 可借</span>`;
             html += `<div class="form-group" style="margin-top:16px;">
@@ -290,7 +292,7 @@
             </div>`;
             html += `<button class="btn btn-return" onclick="doReturn('${book.code}')">📥 还书</button>`;
         }
-        html += `<div style="margin-top:24px;"><span class="back-btn" onclick="switchToCategoryView()">← 返回图书查询</span></div>`;
+        html += `<div style="margin-top:24px;"><span class="back-btn" onclick="showHome()">← 返回首页</span></div>`;
         document.getElementById('dynamicContent').innerHTML = html;
     }
 
@@ -362,15 +364,21 @@
         }
     }
 
-    // 管理员功能（同前，简化版）
+    // ---------- 管理员：图书管理 ----------
     async function loadBooksAdmin() {
         const { data: books } = await mySupabase.from('books').select('*').order('code');
         const { data: records } = await mySupabase.from('borrow_records').select('*').is('return_date', null);
         const map = {}; if (records) records.forEach(r => { map[r.book_code] = r; });
-        let html = `<button class="btn" onclick="showAddForm()">➕ 新增图书</button><table><thead><tr><th>编号</th><th>书名</th><th>分类</th><th>状态</th><th>借阅人</th><th>操作</th></tr></thead><tbody>`;
+        let html = `<button class="btn" onclick="showAddForm()">➕ 新增图书</button>
+        <table style="margin-top:12px;"><thead><tr><th>编号</th><th>书名</th><th>作者</th><th>分类</th><th>状态</th><th>借阅人</th><th>操作</th></tr></thead><tbody>`;
         books.forEach(b => {
             const br = map[b.code] || {};
-            html += `<tr><td>${esc(b.code)}</td><td>${esc(b.title)}</td><td>${esc(b.category)}</td><td>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</td><td>${esc(br.borrower_name)}</td><td><button class="btn btn-outline" onclick="editBook('${b.code}')">✏️</button> <button class="btn btn-danger" onclick="deleteBook('${b.code}')">🗑</button></td></tr>`;
+            html += `<tr>
+                <td>${esc(b.code)}</td><td>${esc(b.title)}</td><td>${esc(b.author)}</td><td>${esc(b.category)}</td>
+                <td>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</td>
+                <td>${esc(br.borrower_name)}</td>
+                <td><button class="btn btn-outline" onclick="editBook('${b.code}')">✏️</button> <button class="btn btn-danger" onclick="deleteBook('${b.code}')">🗑</button></td>
+            </tr>`;
         });
         html += '</tbody></table>';
         document.getElementById('adminContent').innerHTML = html;
@@ -394,6 +402,8 @@
         showToast('保存成功','success'); loadBooksAdmin();
     }
     async function deleteBook(code) { if (confirm(`删除 ${code}？`)) { await mySupabase.from('books').delete().eq('code', code); showToast('已删除','success'); loadBooksAdmin(); } }
+
+    // ---------- 管理员：借阅历史 ----------
     async function loadRecords() {
         const { data } = await mySupabase.from('borrow_records').select('*').order('created_at', { ascending: false });
         let html = `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>借书日期</th><th>应还日期</th><th>归还日期</th></tr></thead><tbody>`;
@@ -408,18 +418,119 @@
         if (data.length) html += '</table>'; else html += '<p>无逾期</p>';
         document.getElementById('adminContent').innerHTML = html;
     }
-    function showImport() { /* 保持原有 */ }
-    function showExport() { /* 保持原有 */ }
-    function showQRCode() { /* 保持原有 */ }
-    function showSettings() { /* 保持原有 */ }
 
-    // 页面初始化
+    // ---------- 管理员：导入 Excel ----------
+    function showImport() {
+        document.getElementById('adminContent').innerHTML = `
+            <h3>📤 导入 Excel / CSV</h3>
+            <input type="file" id="importFile" accept=".csv,.xlsx" style="margin-bottom:12px;">
+            <button class="btn" onclick="doImport()">开始导入</button>
+            <div id="importResult" style="margin-top:12px;"></div>`;
+    }
+    async function doImport() {
+        const file = document.getElementById('importFile').files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet);
+            let ok = 0, skip = 0;
+            for (const row of rows) {
+                const code = (row.code || row['编号'] || '').toString().trim();
+                const title = (row.title || row.book_name || row['书名'] || '').toString().trim();
+                if (!code || !title) { skip++; continue; }
+                let category = row.category || row['分类'] || '';
+                if (!categories.includes(category)) category = '未分类';
+                const { data: exist } = await mySupabase.from('books').select('id').eq('code', code).single();
+                if (exist) await mySupabase.from('books').update({ title, author: row.author||row['作者']||'', category }).eq('code', code);
+                else await mySupabase.from('books').insert({ code, title, author: row.author||'', category });
+                ok++;
+            }
+            document.getElementById('importResult').innerHTML = `<p style="color:green">成功 ${ok} 条，跳过 ${skip} 条</p>`;
+            showToast('导入完成','success');
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // ---------- 管理员：导出 Excel ----------
+    function showExport() {
+        document.getElementById('adminContent').innerHTML = `<h3>📥 导出图书库存</h3><button class="btn" onclick="doExport()">下载 Excel</button>`;
+    }
+    async function doExport() {
+        const { data: books } = await mySupabase.from('books').select('*').order('code');
+        const { data: records } = await mySupabase.from('borrow_records').select('*').is('return_date', null);
+        const map = {}; if (records) records.forEach(r => { map[r.book_code] = r; });
+        const ws_data = [['编号','书名','作者','分类','状态','借阅人','借书日期','应还日期']];
+        books.forEach(b => {
+            const br = map[b.code] || {};
+            ws_data.push([b.code, b.title, b.author, b.category, b.status==='available'?'在馆':'借出', br.borrower_name||'', br.borrow_date||'', br.due_date||'']);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '图书库存');
+        XLSX.writeFile(wb, '图书库存.xlsx');
+    }
+
+    // ---------- 管理员：生成二维码 ----------
+    function showQRCode() {
+        const savedUrl = localStorage.getItem('qrBaseUrl') || window.location.origin + '/?code=';
+        document.getElementById('adminContent').innerHTML = `
+            <h3>📱 生成图书二维码</h3>
+            <label><input type="checkbox" id="includeUrl" checked> 包含访问网址</label>
+            <input type="text" id="baseUrl" value="${savedUrl}" style="width:100%;margin:8px 0; padding:12px; border-radius:12px; border:2px solid #ddd;">
+            <button class="btn" onclick="generateQRCodes()">生成所有图书二维码</button>
+            <div class="qr-container" id="qrContainer" style="margin-top:16px;"></div>`;
+    }
+    async function generateQRCodes() {
+        const includeUrl = document.getElementById('includeUrl').checked;
+        const baseUrl = document.getElementById('baseUrl').value.trim();
+        if (baseUrl) localStorage.setItem('qrBaseUrl', baseUrl);
+        const { data: books } = await mySupabase.from('books').select('code,title').order('code');
+        const container = document.getElementById('qrContainer');
+        container.innerHTML = '';
+        books.forEach(b => {
+            const content = includeUrl ? baseUrl + b.code : b.code;
+            const div = document.createElement('div'); div.style.background='#fff'; div.style.padding='8px'; div.style.borderRadius='8px'; div.style.textAlign='center';
+            div.innerHTML = `<p>${esc(b.code)}<br>${esc(b.title)}</p>`;
+            const canvas = document.createElement('canvas');
+            QRCode.toCanvas(canvas, content, { width: 120, margin: 1 }, err => { if(err) console.warn(err); });
+            canvas.style.background = '#fff';
+            div.appendChild(canvas);
+            container.appendChild(div);
+        });
+    }
+
+    // ---------- 管理员：修改密码 ----------
+    function showSettings() {
+        document.getElementById('adminContent').innerHTML = `
+            <h3>⚙️ 修改管理员密码</h3>
+            <div class="form-group"><input type="password" id="oldPwd" placeholder="旧密码"></div>
+            <div class="form-group"><input type="password" id="newPwd" placeholder="新密码"></div>
+            <div class="form-group"><input type="password" id="confirmPwd" placeholder="确认新密码"></div>
+            <button class="btn" onclick="changePwd()">修改密码</button>`;
+    }
+    async function changePwd() {
+        const old = document.getElementById('oldPwd').value;
+        const newPwd = document.getElementById('newPwd').value;
+        const confirmPwd = document.getElementById('confirmPwd').value;
+        if (!old || !newPwd) return showToast('请填写完整','error');
+        if (newPwd !== confirmPwd) return showToast('两次密码不一致','error');
+        const { data } = await mySupabase.from('settings').select('value').eq('key', 'admin_password').single();
+        if (!(await verifyPassword(old, data.value))) return showToast('旧密码错误','error');
+        await mySupabase.from('settings').update({ value: await hashPassword(newPwd) }).eq('key', 'admin_password');
+        showToast('密码修改成功','success');
+        adminLogout();
+    }
+
+    // 初始化页面
     (function init() {
         const code = new URLSearchParams(window.location.search).get('code');
         if (code) {
             showBookDetail(code);
         } else {
-            switchToCategoryView();
+            showHome();
         }
     })();
 </script>
