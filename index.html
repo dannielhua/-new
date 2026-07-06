@@ -43,7 +43,7 @@
             flex-direction: column;
             gap: 16px;
             position: sticky;
-            top: 20px;
+            top: 60px; /* 向下移动了40px */
         }
         .card {
             background: var(--card-bg);
@@ -88,6 +88,9 @@
         .tab-nav button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
         .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
         .search-box input { flex: 1; padding: 12px; border-radius: 25px; border: 2px solid #e0e0e0; }
+        .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 16px 0; }
+        .cat-card { border-radius: 10px; padding: 12px; text-align: center; font-weight: 600; color: #fff; cursor: pointer; transition: 0.2s; }
+        .cat-card:hover { filter: brightness(0.95); transform: scale(1.02); }
         .category-section { margin-bottom: 24px; }
         .category-section h3 { background: #eef2ff; padding: 8px 16px; border-radius: 6px; font-size: 1rem; margin-bottom: 8px; }
         .book-row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px dashed #eee; }
@@ -199,29 +202,57 @@
     function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 
     const categories = ['教会1','教会2','教会3','教会4','教会5','教会6','教会7','教会8'];
+    const catColors = ['#ff7675','#fdcb6e','#55efc4','#74b9ff','#a29bfe','#fd79a8','#00b894','#6c5ce7','#b2bec3'];
 
-    // ========== 首页（借还书提示） ==========
-    function showHome() {
+    // ========== 首页（扫码提示 + 分类方块） ==========
+    async function showHome() {
         currentView = 'home';
-        document.getElementById('dynamicContent').innerHTML = `
-            <div style="text-align:center; padding:40px 20px;">
-                <div style="font-size:4rem;">📱</div>
-                <h2 style="margin:16px 0;">请扫描图书二维码</h2>
-                <p style="color:#666;">扫描后将自动显示图书信息并进行借还操作</p>
-            </div>`;
+        // 获取分类统计
+        const { data: books } = await mySupabase.from('books').select('category');
+        const counts = {};
+        categories.forEach(c => counts[c] = 0);
+        let uncategorized = 0;
+        books.forEach(b => {
+            if (categories.includes(b.category)) counts[b.category]++;
+            else uncategorized++;
+        });
+
+        let html = `
+            <div style="text-align:center; padding:20px 0 10px;">
+                <div style="font-size:3rem;">📱</div>
+                <h2>请扫描图书二维码</h2>
+                <p style="color:#666; margin-bottom:20px;">扫描后将自动显示图书信息并进行借还操作</p>
+            </div>
+            <h3 style="margin-bottom:12px;">📂 图书分类</h3>
+            <div class="category-grid">
+        `;
+        categories.forEach((c, i) => {
+            html += `<div class="cat-card" style="background:${catColors[i]}" onclick="switchToBookList('${c}')">${c}<br><small>${counts[c]}本</small></div>`;
+        });
+        html += `<div class="cat-card" style="background:#b2bec3" onclick="switchToBookList('未分类')">未分类<br><small>${uncategorized}本</small></div>`;
+        html += `</div>`;
+        document.getElementById('dynamicContent').innerHTML = html;
     }
 
-    // ========== 图书查询视图 ==========
-    async function switchToBookList() {
+    // ========== 图书查询视图（支持直接进入某个分类） ==========
+    async function switchToBookList(category = null) {
         currentView = 'bookList';
         const { data: books } = await mySupabase.from('books').select('*').order('code');
-        renderBookList(books, '');
+        renderBookList(books, '', category);
     }
 
-    function renderBookList(books, searchTerm) {
-        let filtered = books;
+    function renderBookList(allBooks, searchTerm, selectedCategory) {
+        let filtered = allBooks;
         if (searchTerm) {
-            filtered = books.filter(b => b.title.toLowerCase().includes(searchTerm.toLowerCase()));
+            filtered = allBooks.filter(b => b.title.toLowerCase().includes(searchTerm.toLowerCase()));
+        }
+        // 如果有指定分类，则只显示该分类
+        if (selectedCategory) {
+            if (selectedCategory === '未分类') {
+                filtered = filtered.filter(b => !categories.includes(b.category));
+            } else {
+                filtered = filtered.filter(b => b.category === selectedCategory);
+            }
         }
         const grouped = {};
         categories.forEach(c => grouped[c] = []);
@@ -231,43 +262,78 @@
             else uncategorized.push(b);
         });
 
-        let html = `<div class="search-box">
-            <input type="text" id="searchTitle" placeholder="🔍 搜索书名..." value="${searchTerm}" onkeyup="if(event.key==='Enter') searchBooks()">
-            <button class="btn" onclick="searchBooks()">搜索</button>
-        </div>`;
-        for (const cat of categories) {
-            const items = grouped[cat];
-            if (items.length === 0) continue;
-            html += `<div class="category-section"><h3>${cat} (${items.length}本)</h3>`;
-            items.forEach(b => {
-                html += `<div class="book-row">
-                    <span><strong>${esc(b.code)}</strong></span>
-                    <span>${esc(b.title)}</span>
-                    <span style="color:#555;">${esc(b.author)}</span>
-                    <span>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</span>
-                </div>`;
+        let html = '';
+        // 如果没有选定分类，显示搜索框和分类网格
+        if (!selectedCategory) {
+            html += `<div class="search-box">
+                <input type="text" id="searchTitle" placeholder="🔍 搜索书名..." onkeyup="if(event.key==='Enter') searchBooks()">
+                <button class="btn" onclick="searchBooks()">搜索</button>
+            </div>`;
+            html += '<div class="category-grid">';
+            categories.forEach((c, i) => {
+                const cnt = allBooks.filter(b => b.category === c).length;
+                html += `<div class="cat-card" style="background:${catColors[i]}" onclick="switchToBookList('${c}')">${c}<br><small>${cnt}本</small></div>`;
             });
-            html += `</div>`;
+            const uncatCnt = allBooks.filter(b => !categories.includes(b.category)).length;
+            html += `<div class="cat-card" style="background:#b2bec3" onclick="switchToBookList('未分类')">未分类<br><small>${uncatCnt}本</small></div>`;
+            html += '</div>';
+        } else {
+            html += `<div class="book-list-header">
+                <span class="back-btn" onclick="switchToBookList()">← 返回全部</span>
+                <h3>${selectedCategory} (${filtered.length}本)</h3>
+            </div>`;
         }
-        if (uncategorized.length > 0) {
-            html += `<div class="category-section"><h3>未分类 (${uncategorized.length}本)</h3>`;
-            uncategorized.forEach(b => {
-                html += `<div class="book-row">
-                    <span><strong>${esc(b.code)}</strong></span>
-                    <span>${esc(b.title)}</span>
-                    <span style="color:#555;">${esc(b.author)}</span>
-                    <span>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</span>
-                </div>`;
+
+        // 显示图书列表
+        if (filtered.length === 0) {
+            html += '<p style="color:#999;">暂无图书</p>';
+        } else if (selectedCategory) {
+            // 选定分类时，直接列出
+            html += '<table><thead><tr><th>编号</th><th>书名</th><th>作者</th><th>状态</th></tr></thead><tbody>';
+            filtered.forEach(b => {
+                html += `<tr>
+                    <td><strong>${esc(b.code)}</strong></td>
+                    <td>${esc(b.title)}</td>
+                    <td>${esc(b.author||'')}</td>
+                    <td>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</td>
+                </tr>`;
             });
-            html += `</div>`;
+            html += '</tbody></table>';
+        } else {
+            // 未选定分类，按分类分组显示
+            for (const cat of categories) {
+                const items = grouped[cat];
+                if (items.length === 0) continue;
+                html += `<div class="category-section"><h3>${cat} (${items.length}本)</h3>`;
+                items.forEach(b => {
+                    html += `<div class="book-row">
+                        <span><strong>${esc(b.code)}</strong></span>
+                        <span>${esc(b.title)}</span>
+                        <span style="color:#555;">${esc(b.author)}</span>
+                        <span>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            if (uncategorized.length > 0) {
+                html += `<div class="category-section"><h3>未分类 (${uncategorized.length}本)</h3>`;
+                uncategorized.forEach(b => {
+                    html += `<div class="book-row">
+                        <span><strong>${esc(b.code)}</strong></span>
+                        <span>${esc(b.title)}</span>
+                        <span style="color:#555;">${esc(b.author)}</span>
+                        <span>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
         }
-        if (filtered.length === 0) html += '<p style="color:#999;">暂无图书</p>';
         document.getElementById('dynamicContent').innerHTML = html;
     }
 
     function searchBooks() {
-        const term = document.getElementById('searchTitle').value.trim();
-        mySupabase.from('books').select('*').order('code').then(({data}) => renderBookList(data, term));
+        const term = document.getElementById('searchTitle')?.value.trim() || '';
+        mySupabase.from('books').select('*').order('code').then(({data}) => renderBookList(data, term, null));
     }
 
     // ========== 扫码后图书详情 ==========
@@ -524,7 +590,7 @@
         adminLogout();
     }
 
-    // 初始化页面
+    // 页面初始化
     (function init() {
         const code = new URLSearchParams(window.location.search).get('code');
         if (code) {
