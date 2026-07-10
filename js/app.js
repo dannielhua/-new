@@ -1,34 +1,22 @@
 const App = {
-    currentView: 'home',
     init() {
-        // 初始化默认密码
-        API.getAdminPasswordHash().then(hash => {
-            if (!hash) API.setAdminPasswordHash(await Utils.hashPassword('admin123'));
+        API.getAdminPasswordHash().then(async (hash) => {
+            if (!hash) await API.setAdminPasswordHash(await Utils.hashPassword('admin123'));
         });
         const code = new URLSearchParams(window.location.search).get('code');
-        if (code) {
-            Borrow.showBookDetail(code);
-        } else {
-            Books.showHome();
-        }
+        if (code) Borrow.showBookDetail(code);
+        else Books.showHome();
     },
-
     showNotice() {
         document.getElementById('noticeModal').classList.remove('hidden');
     },
-
     switchToBookList(category) {
         Books.switchToBookList(category);
     },
-
     openAdmin() {
-        if (localStorage.getItem('adminToken')) {
-            this.showAdminPanel();
-        } else {
-            document.getElementById('loginModal').classList.remove('hidden');
-        }
+        if (localStorage.getItem('adminToken')) this.showAdminPanel();
+        else document.getElementById('loginModal').classList.remove('hidden');
     },
-
     async adminLogin() {
         const pwd = document.getElementById('loginPassword').value;
         const hash = await API.getAdminPasswordHash();
@@ -39,18 +27,15 @@ const App = {
         document.getElementById('loginModal').classList.add('hidden');
         this.showAdminPanel();
     },
-
     adminLogout() {
         localStorage.removeItem('adminToken');
         document.getElementById('adminView').classList.add('hidden');
         Utils.toast('已退出','info');
     },
-
     showAdminPanel() {
         document.getElementById('adminView').classList.remove('hidden');
         this.switchAdminTab('dashboard');
     },
-
     switchAdminTab(tab) {
         document.querySelectorAll('#adminView .tab-nav button').forEach(b => b.classList.remove('active'));
         const btn = document.querySelector(`#adminView .tab-nav button[data-tab="${tab}"]`);
@@ -68,7 +53,6 @@ const App = {
     }
 };
 
-// 事件绑定
 document.querySelector('#adminView .tab-nav').addEventListener('click', e => {
     if (e.target.tagName === 'BUTTON') App.switchAdminTab(e.target.dataset.tab);
 });
