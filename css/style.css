@@ -19,9 +19,9 @@ body {
 .container { max-width: 1200px; width: 100%; display: flex; gap: 24px; align-items: flex-start; }
 .main-content { flex: 1.2; min-width: 0; }
 .sidebar { width: 300px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 60px; }
-.card { background: transparent; border-radius: 0; padding: 24px; color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.6); }
+.card { background: transparent; padding: 24px; color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.6); }
 .church-header { text-align: center; padding: 20px 0 10px; color: #fff; }
-.church-header img { max-width: 550px; height: auto; border-radius: 25px; }
+.church-header img { max-width: 550px; border-radius: 25px; }
 .church-header p { font-size: 1.8rem; margin-top: 6px; }
 .btn { padding: 10px 20px; border: none; border-radius: 25px; font-weight: 600; cursor: pointer; font-size: 0.95rem; background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: inline-flex; align-items: center; gap: 6px; }
 .btn:hover { opacity: 0.9; transform: translateY(-1px); }
@@ -38,7 +38,8 @@ body {
 .badge-borrowed { background: #fef3c7; color: #92400e; }
 .hidden { display: none !important; }
 .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 16px; padding: 28px; width: 90%; max-width: 500px; color: #333; }
+.modal { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 16px; padding: 28px; width: 90%; max-width: 500px; color: #333; text-align: center; }
+.modal ol { display: inline-block; text-align: left; }
 .toast { position: fixed; top: 20px; right: 20px; background: #333; color: #fff; padding: 12px 24px; border-radius: 30px; font-weight: 600; z-index: 2000; animation: fadeOut 3s forwards; }
 @keyframes fadeOut { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
 .tab-nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -62,28 +63,24 @@ table { width: 100%; border-collapse: collapse; font-size: 0.95rem; background: 
 th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.3); }
 th { background: rgba(255,255,255,0.2); font-weight: 600; }
 tr:hover { background: rgba(255,255,255,0.15); }
-
-/* 统计卡片 */
 .stats-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
 .stat-card { flex: 1; min-width: 100px; background: rgba(255,255,255,0.15); backdrop-filter: blur(5px); border-radius: 12px; padding: 16px; text-align: center; color: #fff; }
 .stat-card .stat-icon { font-size: 2rem; }
 .stat-card .stat-value { font-size: 2rem; font-weight: 700; }
 .stat-card .stat-label { font-size: 0.9rem; opacity: 0.9; }
-
-/* 图书卡片（用于图书查询列表） */
 .book-card { display: flex; gap: 16px; align-items: center; padding: 12px; margin: 8px 0; background: rgba(255,255,255,0.1); border-radius: 12px; backdrop-filter: blur(5px); color: #fff; }
 .book-card img.cover { width: 60px; height: 80px; object-fit: cover; border-radius: 6px; background: rgba(255,255,255,0.2); }
 .book-card .info { flex: 1; }
 .book-card .info strong { display: block; font-size: 1.1rem; }
 .book-card .info .meta { font-size: 0.85rem; opacity: 0.8; }
 .book-card .status { margin-left: auto; }
-
 @media (max-width: 800px) {
     .container { flex-direction: column; }
     .sidebar { width: 100%; position: static; flex-direction: row; flex-wrap: wrap; gap: 12px; }
     .sidebar-card { flex: 1; min-width: 120px; }
     .church-header img { max-width: 350px; }
 }
+
 /* 白色半透明卡片（用于图书查询、借还书详情） */
 .card-white {
     background: rgba(255, 255, 255, 0.85) !important;
@@ -99,7 +96,3 @@ tr:hover { background: rgba(255,255,255,0.15); }
 .card-white .badge-borrowed { background: #fef3c7; color: #92400e; }
 .card-white input { color: #333; background: rgba(255,255,255,0.8); border-color: #ccc; }
 .card-white .back-btn { color: var(--primary); text-shadow: none; }
-
-/* 弹窗内容居中 */
-.modal { text-align: center; }
-.modal ol { display: inline-block; text-align: left; }
