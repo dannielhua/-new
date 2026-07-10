@@ -1,5 +1,7 @@
 const Books = {
     async showHome() {
+        // 首页保持透明背景
+        document.getElementById('dynamicContent').parentElement.classList.remove('card-white');
         const books = await API.getBooks();
         const total = books.length;
         const available = books.filter(b => b.status === 'available').length;
@@ -31,6 +33,8 @@ const Books = {
         document.getElementById('dynamicContent').innerHTML = html;
     },
     async switchToBookList(category) {
+        // 切换到图书查询，背景变为白色
+        document.getElementById('dynamicContent').parentElement.classList.add('card-white');
         const books = await API.getBooks();
         this.renderBookList(books, '', category);
     },
@@ -50,7 +54,7 @@ const Books = {
             if (selectedCategory === '未分类') filtered = filtered.filter(b => !Utils.categories.includes(b.category));
             else filtered = filtered.filter(b => b.category === selectedCategory);
         }
-        let html = '';
+        let html = `<div class="back-btn" onclick="Books.showHome()" style="margin-bottom:12px; display:block;">← 返回首页</div>`;
         if (!selectedCategory) {
             html += `<div class="search-box">
                 <input type="text" id="searchTitle" placeholder="🔍 搜索书名、作者、编号..." onkeyup="if(event.key==='Enter') Books.search()">
