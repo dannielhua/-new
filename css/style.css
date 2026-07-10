@@ -84,3 +84,22 @@ tr:hover { background: rgba(255,255,255,0.15); }
     .sidebar-card { flex: 1; min-width: 120px; }
     .church-header img { max-width: 350px; }
 }
+/* 白色半透明卡片（用于图书查询、借还书详情） */
+.card-white {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(8px);
+    color: #333 !important;
+    text-shadow: none !important;
+}
+.card-white h2, .card-white h3, .card-white p, .card-white label {
+    color: #333 !important;
+    text-shadow: none !important;
+}
+.card-white .badge-available { background: #d1fae5; color: #065f46; }
+.card-white .badge-borrowed { background: #fef3c7; color: #92400e; }
+.card-white input { color: #333; background: rgba(255,255,255,0.8); border-color: #ccc; }
+.card-white .back-btn { color: var(--primary); text-shadow: none; }
+
+/* 弹窗内容居中 */
+.modal { text-align: center; }
+.modal ol { display: inline-block; text-align: left; }
