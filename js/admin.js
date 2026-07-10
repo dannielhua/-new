@@ -5,44 +5,37 @@ const Admin = {
         const available = books.filter(b => b.status === 'available').length;
         const borrowed = total - available;
         const today = new Date().toISOString().split('T')[0];
-        const records = await API.getActiveBorrows();
-        const overdue = records.filter(r => r.due_date < today).length;
-        const html = `
+        const active = await API.getActiveBorrows();
+        const overdue = active.filter(r => r.due_date < today).length;
+        document.getElementById('adminContent').innerHTML = `
             <div class="stats-row">
                 <div class="stat-card dashboard"><div class="stat-icon">📚</div><div class="stat-value">${total}</div><div class="stat-label">总藏书</div></div>
                 <div class="stat-card dashboard"><div class="stat-icon">🟢</div><div class="stat-value">${available}</div><div class="stat-label">可借</div></div>
                 <div class="stat-card dashboard"><div class="stat-icon">🟡</div><div class="stat-value">${borrowed}</div><div class="stat-label">借出</div></div>
                 <div class="stat-card dashboard"><div class="stat-icon">⚠️</div><div class="stat-value">${overdue}</div><div class="stat-label">逾期</div></div>
             </div>
-            <p>欢迎进入管理员后台，请使用上方标签管理图书。</p>
-        `;
-        document.getElementById('adminContent').innerHTML = html;
+            <p>欢迎进入管理员后台。</p>`;
     },
-
     async loadBooksAdmin() {
         const books = await API.getBooks();
-        const activeMap = {};
-        const records = await API.getActiveBorrows();
-        records.forEach(r => { activeMap[r.book_code] = r; });
+        const active = await API.getActiveBorrows();
+        const map = {};
+        active.forEach(r => { map[r.book_code] = r; });
         let html = `<button class="btn" onclick="Admin.showAddForm()">➕ 新增图书</button>
         <table style="margin-top:12px;"><thead><tr><th>编号</th><th>书名</th><th>作者</th><th>分类</th><th>状态</th><th>借阅人</th><th>操作</th></tr></thead><tbody>`;
         books.forEach(b => {
-            const br = activeMap[b.code] || {};
+            const br = map[b.code] || {};
             html += `<tr>
                 <td>${Utils.esc(b.code)}</td><td>${Utils.esc(b.title)}</td><td>${Utils.esc(b.author)}</td>
                 <td>${Utils.esc(b.category)}</td>
                 <td>${b.status==='available'?'<span class="badge badge-available">在馆</span>':'<span class="badge badge-borrowed">借出</span>'}</td>
                 <td>${Utils.esc(br.borrower_name)}</td>
-                <td>
-                    <button class="btn btn-outline" onclick="Admin.editBook('${b.code}')">✏️</button>
-                    <button class="btn btn-danger" onclick="Admin.deleteBook('${b.code}')">🗑</button>
-                </td>
+                <td><button class="btn btn-outline" onclick="Admin.editBook('${b.code}')">✏️</button> <button class="btn btn-danger" onclick="Admin.deleteBook('${b.code}')">🗑</button></td>
             </tr>`;
         });
         html += '</tbody></table>';
         document.getElementById('adminContent').innerHTML = html;
     },
-
     showAddForm(book=null) {
         const isEdit = !!book;
         let html = `<h3>${isEdit?'编辑':'新增'}图书</h3>
@@ -54,11 +47,9 @@ const Admin = {
         <button class="btn" onclick="Admin.saveBook('${isEdit?book.code:''}')">保存</button>`;
         document.getElementById('adminContent').innerHTML = html;
     },
-
     editBook(code) {
         API.getBookByCode(code).then(book => this.showAddForm(book));
     },
-
     async saveBook(originalCode) {
         const code = document.getElementById('editCode').value.trim();
         const data = {
@@ -76,14 +67,12 @@ const Admin = {
         Utils.toast('保存成功','success');
         this.loadBooksAdmin();
     },
-
     async deleteBook(code) {
         if (!confirm(`删除 ${code}？`)) return;
         await API.deleteBook(code);
         Utils.toast('已删除','success');
         this.loadBooksAdmin();
     },
-
     async loadRecords() {
         const records = await API.getAllRecords();
         let html = `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>借书日期</th><th>应还日期</th><th>归还日期</th><th>操作</th></tr></thead><tbody>`;
@@ -98,18 +87,16 @@ const Admin = {
         html += '</tbody></table>';
         document.getElementById('adminContent').innerHTML = html;
     },
-
     async deleteRecord(id) {
         if (!confirm('删除这条记录？')) return;
         await API.deleteRecord(id);
         Utils.toast('已删除','success');
         this.loadRecords();
     },
-
     async loadOverdue() {
         const today = new Date().toISOString().split('T')[0];
-        const records = await API.getActiveBorrows();
-        const overdue = records.filter(r => r.due_date < today);
+        const active = await API.getActiveBorrows();
+        const overdue = active.filter(r => r.due_date < today);
         let html = `<h3>逾期未还 (${overdue.length})</h3>`;
         if (overdue.length === 0) html += '<p>无逾期</p>';
         else {
@@ -121,7 +108,6 @@ const Admin = {
         }
         document.getElementById('adminContent').innerHTML = html;
     },
-
     showImport() {
         document.getElementById('adminContent').innerHTML = `
             <h3>📤 导入 Excel / CSV</h3>
@@ -129,7 +115,6 @@ const Admin = {
             <button class="btn" onclick="Admin.doImport()">开始导入</button>
             <div id="importResult"></div>`;
     },
-
     async doImport() {
         const file = document.getElementById('importFile').files[0];
         if (!file) return;
@@ -148,7 +133,7 @@ const Admin = {
                 if (!Utils.categories.includes(category)) category = '未分类';
                 const exist = await API.getBookByCode(code);
                 if (exist) {
-                    await API.updateBook(code, { title, author: row.author || row['作者'] || '', category });
+                    await API.updateBook(code, { title, author: row.author || '', category });
                 } else {
                     await API.insertBook({ code, title, author: row.author || '', category });
                 }
@@ -159,11 +144,9 @@ const Admin = {
         };
         reader.readAsArrayBuffer(file);
     },
-
     showExport() {
         document.getElementById('adminContent').innerHTML = `<h3>📥 导出图书库存</h3><button class="btn" onclick="Admin.doExport()">下载 Excel</button>`;
     },
-
     async doExport() {
         const books = await API.getBooks();
         const active = await API.getActiveBorrows();
@@ -179,7 +162,6 @@ const Admin = {
         XLSX.utils.book_append_sheet(wb, ws, '图书库存');
         XLSX.writeFile(wb, '图书库存.xlsx');
     },
-
     showQRCode() {
         const savedUrl = localStorage.getItem('qrBaseUrl') || window.location.origin + '/?code=';
         document.getElementById('adminContent').innerHTML = `
@@ -190,7 +172,6 @@ const Admin = {
             <button class="btn" onclick="Admin.printAllQRCodes()">🖨️ 打印全部</button>
             <div class="qr-container" id="qrContainer" style="margin-top:16px;"></div>`;
     },
-
     async generateQRCodes() {
         const includeUrl = document.getElementById('includeUrl').checked;
         const baseUrl = document.getElementById('baseUrl').value.trim();
@@ -210,7 +191,6 @@ const Admin = {
             container.appendChild(div);
         });
     },
-
     printAllQRCodes() {
         const container = document.getElementById('qrContainer');
         if (!container || container.children.length === 0) {
@@ -235,16 +215,14 @@ const Admin = {
         printWindow.print();
         printWindow.close();
     },
-
     showSettings() {
         document.getElementById('adminContent').innerHTML = `
             <h3>⚙️ 修改管理员密码</h3>
-            <div class="form-group"><label class="pwd-label">旧密码</label><input type="password" id="oldPwd"></div>
-            <div class="form-group"><label class="pwd-label">新密码</label><input type="password" id="newPwd"></div>
-            <div class="form-group"><label class="pwd-label">确认新密码</label><input type="password" id="confirmPwd"></div>
+            <div class="form-group"><label>旧密码</label><input type="password" id="oldPwd"></div>
+            <div class="form-group"><label>新密码</label><input type="password" id="newPwd"></div>
+            <div class="form-group"><label>确认新密码</label><input type="password" id="confirmPwd"></div>
             <button class="btn" onclick="Admin.changePwd()">修改密码</button>`;
     },
-
     async changePwd() {
         const old = document.getElementById('oldPwd').value;
         const newPwd = document.getElementById('newPwd').value;
