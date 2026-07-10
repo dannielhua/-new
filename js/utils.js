@@ -12,7 +12,6 @@ const Utils = {
         d.textContent = s || '';
         return d.innerHTML;
     },
-    // 密码哈希（PBKDF2）
     async hashPassword(password) {
         const encoder = new TextEncoder();
         const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -30,10 +29,8 @@ const Utils = {
         const newHash = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
         return newHash === hashHex;
     },
-    // 获取默认封面
     defaultCover() { return 'images/default-cover.png'; },
-    // 分类常量
     categories: ['圣经研究', '灵修', '婚姻家庭', '儿童', '教会历史', '神学', '生活实践', '其他'],
     catColors: ['#ff7675','#fdcb6e','#55efc4','#74b9ff','#a29bfe','#fd79a8','#00b894','#6c5ce7','#b2bec3'],
-    daysToDue: 90   // 借阅期限（天）
+    daysToDue: 90
 };
