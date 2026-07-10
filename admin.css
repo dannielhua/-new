@@ -1,8 +1,0 @@
-#adminView { color: #222; }
-#adminView h2, #adminView h3 { color: #111; }
-#adminView .btn-outline { color: var(--primary); border-color: var(--primary); }
-#adminView table { color: #222; background: rgba(255,255,255,0.6); }
-#adminView th { background: rgba(255,255,255,0.8); color: #111; }
-.pwd-label { display: block; font-weight: 600; margin-bottom: 4px; color: #333; }
-.stat-card.dashboard { background: rgba(255,255,255,0.9); color: #333; text-shadow: none; }
-.stat-card.dashboard .stat-value { color: var(--primary); }
