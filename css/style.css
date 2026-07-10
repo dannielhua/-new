@@ -128,3 +128,24 @@ tr:hover { background: rgba(255,255,255,0.15); }
 #adminView .stat-card.dashboard .stat-value {
     color: var(--primary) !important;
 }
+/* 图书查询页面文字改为深色 */
+.card-white .book-card,
+.card-white .book-card strong,
+.card-white .book-card .meta,
+.card-white .book-card .info div,
+.card-white .book-card .status {
+    color: #222 !important;
+    text-shadow: none !important;
+}
+.card-white .category-section h3 {
+    color: #222 !important;
+    text-shadow: none !important;
+    background: rgba(0,0,0,0.05);
+}
+.card-white .book-row {
+    color: #222 !important;
+    text-shadow: none !important;
+}
+.card-white .book-row span {
+    color: #222 !important;
+}
