@@ -36,15 +36,15 @@ const Admin = {
         html += '</tbody></table>';
         document.getElementById('adminContent').innerHTML = html;
     },
-    showAddForm(book=null) {
+    showAddForm(book = null) {
         const isEdit = !!book;
-        let html = `<h3>${isEdit?'编辑':'新增'}图书</h3>
-        <div class="form-group"><input id="editCode" placeholder="编号" value="${isEdit?book.code:''}" ${isEdit?'disabled':''}></div>
-        <div class="form-group"><input id="editTitle" placeholder="书名" value="${isEdit?book.title:''}"></div>
-        <div class="form-group"><input id="editAuthor" placeholder="作者" value="${isEdit?book.author||''}"></div>
-        <div class="form-group"><select id="editCategory">${Utils.categories.map(c => `<option ${(book&&book.category===c)?'selected':''}>${c}</option>`).join('')}</select></div>
-        <div class="form-group"><input id="editCover" placeholder="封面图片URL" value="${isEdit?book.cover_url||'':''}"></div>
-        <button class="btn" onclick="Admin.saveBook('${isEdit?book.code:''}')">保存</button>`;
+        let html = `<h3>${isEdit ? '编辑' : '新增'}图书</h3>
+        <div class="form-group"><input id="editCode" placeholder="编号" value="${isEdit ? book.code : ''}" ${isEdit ? 'disabled' : ''}></div>
+        <div class="form-group"><input id="editTitle" placeholder="书名" value="${isEdit ? book.title : ''}"></div>
+        <div class="form-group"><input id="editAuthor" placeholder="作者" value="${isEdit ? (book.author || '') : ''}"></div>
+        <div class="form-group"><select id="editCategory">${Utils.categories.map(c => `<option ${(book && book.category === c) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div class="form-group"><input id="editCover" placeholder="封面图片URL" value="${isEdit ? (book.cover_url || '') : ''}"></div>
+        <button class="btn" onclick="Admin.saveBook('${isEdit ? book.code : ''}')">保存</button>`;
         document.getElementById('adminContent').innerHTML = html;
     },
     editBook(code) {
@@ -64,13 +64,13 @@ const Admin = {
             data.code = code;
             await API.insertBook(data);
         }
-        Utils.toast('保存成功','success');
+        Utils.toast('保存成功', 'success');
         this.loadBooksAdmin();
     },
     async deleteBook(code) {
-        if (!confirm(`删除 ${code}？`)) return;
+        if (!confirm(`删除 ${code} ？`)) return;
         await API.deleteBook(code);
-        Utils.toast('已删除','success');
+        Utils.toast('已删除', 'success');
         this.loadBooksAdmin();
     },
     async loadRecords() {
@@ -78,9 +78,9 @@ const Admin = {
         let html = `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>借书日期</th><th>应还日期</th><th>归还日期</th><th>操作</th></tr></thead><tbody>`;
         records.forEach(r => {
             html += `<tr>
-                <td>${Utils.esc(r.book_code)}</td><td>${Utils.esc(r.book_name||'')}</td>
+                <td>${Utils.esc(r.book_code)}</td><td>${Utils.esc(r.book_name || '')}</td>
                 <td>${Utils.esc(r.borrower_name)}</td><td>${r.borrow_date}</td>
-                <td>${r.due_date}</td><td>${r.return_date||'未还'}</td>
+                <td>${r.due_date}</td><td>${r.return_date || '未还'}</td>
                 <td><button class="btn btn-danger" onclick="Admin.deleteRecord(${r.id})">🗑 删除</button></td>
             </tr>`;
         });
@@ -90,7 +90,7 @@ const Admin = {
     async deleteRecord(id) {
         if (!confirm('删除这条记录？')) return;
         await API.deleteRecord(id);
-        Utils.toast('已删除','success');
+        Utils.toast('已删除', 'success');
         this.loadRecords();
     },
     async loadOverdue() {
@@ -102,7 +102,7 @@ const Admin = {
         else {
             html += '<table><tr><th>编号</th><th>书名</th><th>借阅人</th><th>应还日期</th></tr>';
             overdue.forEach(r => {
-                html += `<tr><td>${Utils.esc(r.book_code)}</td><td>${Utils.esc(r.book_name||'')}</td><td>${Utils.esc(r.borrower_name)}</td><td>${r.due_date}</td></tr>`;
+                html += `<tr><td>${Utils.esc(r.book_code)}</td><td>${Utils.esc(r.book_name || '')}</td><td>${Utils.esc(r.borrower_name)}</td><td>${r.due_date}</td></tr>`;
             });
             html += '</table>';
         }
@@ -140,7 +140,7 @@ const Admin = {
                 ok++;
             }
             document.getElementById('importResult').innerHTML = `<p>成功 ${ok} 条，跳过 ${skip} 条</p>`;
-            Utils.toast('导入完成','success');
+            Utils.toast('导入完成', 'success');
         };
         reader.readAsArrayBuffer(file);
     },
@@ -152,10 +152,10 @@ const Admin = {
         const active = await API.getActiveBorrows();
         const map = {};
         active.forEach(r => { map[r.book_code] = r; });
-        const ws_data = [['编号','书名','作者','分类','状态','借阅人','借书日期','应还日期']];
+        const ws_data = [['编号', '书名', '作者', '分类', '状态', '借阅人', '借书日期', '应还日期']];
         books.forEach(b => {
             const br = map[b.code] || {};
-            ws_data.push([b.code, b.title, b.author, b.category, b.status==='available'?'在馆':'借出', br.borrower_name||'', br.borrow_date||'', br.due_date||'']);
+            ws_data.push([b.code, b.title, b.author, b.category, b.status === 'available' ? '在馆' : '借出', br.borrower_name || '', br.borrow_date || '', br.due_date || '']);
         });
         const ws = XLSX.utils.aoa_to_sheet(ws_data);
         const wb = XLSX.utils.book_new();
@@ -182,10 +182,10 @@ const Admin = {
         books.forEach(b => {
             const content = includeUrl ? baseUrl + b.code : b.code;
             const div = document.createElement('div'); div.className = 'qr-item';
-            div.style.background='#fff'; div.style.padding='8px'; div.style.borderRadius='8px'; div.style.textAlign='center';
+            div.style.background = '#fff'; div.style.padding = '8px'; div.style.borderRadius = '8px'; div.style.textAlign = 'center';
             div.innerHTML = `<p>${Utils.esc(b.code)}<br>${Utils.esc(b.title)}</p>`;
             const canvas = document.createElement('canvas');
-            QRCode.toCanvas(canvas, content, { width: 120, margin: 1 }, err => { if(err) console.warn(err); });
+            QRCode.toCanvas(canvas, content, { width: 120, margin: 1 }, err => { if (err) console.warn(err); });
             canvas.style.background = '#fff';
             div.appendChild(canvas);
             container.appendChild(div);
@@ -227,13 +227,13 @@ const Admin = {
         const old = document.getElementById('oldPwd').value;
         const newPwd = document.getElementById('newPwd').value;
         const confirmPwd = document.getElementById('confirmPwd').value;
-        if (!old || !newPwd) return Utils.toast('请填写完整','error');
-        if (newPwd !== confirmPwd) return Utils.toast('两次不一致','error');
+        if (!old || !newPwd) return Utils.toast('请填写完整', 'error');
+        if (newPwd !== confirmPwd) return Utils.toast('两次不一致', 'error');
         const hash = await API.getAdminPasswordHash();
-        if (!hash || !(await Utils.verifyPassword(old, hash))) return Utils.toast('旧密码错误','error');
+        if (!hash || !(await Utils.verifyPassword(old, hash))) return Utils.toast('旧密码错误', 'error');
         const newHash = await Utils.hashPassword(newPwd);
         await API.setAdminPasswordHash(newHash);
-        Utils.toast('密码修改成功','success');
+        Utils.toast('密码修改成功', 'success');
         App.adminLogout();
     }
 };
