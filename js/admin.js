@@ -36,17 +36,60 @@ const Admin = {
         html += '</tbody></table>';
         document.getElementById('adminContent').innerHTML = html;
     },
-    showAddForm(book = null) {
-        const isEdit = !!book;
-        let html = `<h3>${isEdit ? '编辑' : '新增'}图书</h3>
-        <div class="form-group"><input id="editCode" placeholder="编号" value="${isEdit ? book.code : ''}" ${isEdit ? 'disabled' : ''}></div>
-        <div class="form-group"><input id="editTitle" placeholder="书名" value="${isEdit ? book.title : ''}"></div>
-        <div class="form-group"><input id="editAuthor" placeholder="作者" value="${isEdit ? (book.author || '') : ''}"></div>
-        <div class="form-group"><select id="editCategory">${Utils.categories.map(c => `<option ${(book && book.category === c) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
-        <div class="form-group"><input id="editCover" placeholder="封面图片URL" value="${isEdit ? (book.cover_url || '') : ''}"></div>
-        <button class="btn" onclick="Admin.saveBook('${isEdit ? book.code : ''}')">保存</button>`;
-        document.getElementById('adminContent').innerHTML = html;
-    },
+    // 替换 admin.js 中的 showAddForm 函数
+showAddForm(book = null) {
+    const isEdit = !!book;
+    let html = `<h3>${isEdit ? '编辑' : '新增'}图书</h3>
+    <div class="form-group"><input id="editCode" placeholder="图书编号 (如 BK001)" value="${isEdit ? book.code : ''}" ${isEdit ? 'disabled' : ''}></div>
+    <div class="form-group"><input id="editTitle" placeholder="书名" value="${isEdit ? book.title : ''}"></div>
+    <div class="form-group"><input id="editAuthor" placeholder="作者" value="${isEdit ? (book.author || '') : ''}"></div>
+    <div class="form-group"><select id="editCategory">${Utils.categories.map(c => `<option ${(book && book.category === c) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+    <div class="form-group"><input id="editCover" placeholder="封面图片URL (可留空)" value="${isEdit ? (book.cover_url || '') : ''}"></div>
+    <div class="form-group">
+        <label>上传封面图片 (可选)</label>
+        <input type="file" id="editCoverFile" accept="image/*" onchange="Admin.uploadCover()">
+    </div>
+    <button class="btn" onclick="Admin.saveBook('${isEdit ? book.code : ''}')">保存</button>`;
+    document.getElementById('adminContent').innerHTML = html;
+},
+
+// 在 admin.js 末尾新增 uploadCover 函数
+async uploadCover() {
+    const fileInput = document.getElementById('editCoverFile');
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    // 优先使用已填写的编号，若没有则使用时间戳
+    let code = document.getElementById('editCode')?.value.trim();
+    if (!code) {
+        code = 'temp_' + Date.now();
+    }
+    const ext = file.name.split('.').pop();
+    const fileName = `${code}.${ext}`;
+
+    try {
+        Utils.toast('正在上传封面...', 'info');
+        const { data, error } = await mySupabase.storage
+            .from('book-covers')          // 确保 Supabase 中有这个桶，且公开
+            .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: true
+            });
+
+        if (error) throw error;
+
+        // 获取公开访问 URL
+        const { data: publicUrlData } = mySupabase.storage
+            .from('book-covers')
+            .getPublicUrl(fileName);
+
+        document.getElementById('editCover').value = publicUrlData.publicUrl;
+        Utils.toast('封面上传成功！', 'success');
+    } catch (err) {
+        console.error('上传封面失败:', err);
+        Utils.toast('上传封面失败: ' + err.message, 'error');
+    }
+},
     editBook(code) {
         API.getBookByCode(code).then(book => this.showAddForm(book));
     },
