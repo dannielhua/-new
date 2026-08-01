@@ -70,16 +70,6 @@ const App = {
             case 'settings': Admin.showSettings(); break;
         }
     },
-    toggleCover() {
-        const show = document.getElementById('coverSwitch').checked;
-        localStorage.setItem('showCover', show);
-        // 刷新当前视图
-        if (this.currentView === 'bookList') Books.switchToBookList();
-        else if (this.currentView === 'detail') {
-            const code = new URLSearchParams(window.location.search).get('code');
-            if (code) Borrow.showBookDetail(code);
-        }
-    }
 };
 
 document.querySelector('#adminView .tab-nav').addEventListener('click', e => {
