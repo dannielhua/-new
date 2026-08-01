@@ -30,7 +30,23 @@ const Utils = {
         return newHash === hashHex;
     },
     defaultCover() { return 'images/default-cover.png'; },
-    categories: ['圣经研究', '灵修', '婚姻家庭', '儿童', '教会历史', '神学', '生活实践', '其他'],
+    daysToDue: 90,
+
+    // 分类管理（支持自定义，默认提供常用分类）
+    defaultCategories: ['圣经研究', '灵修', '婚姻家庭', '儿童', '教会历史', '神学', '生活实践', '其他'],
     catColors: ['#ff7675','#fdcb6e','#55efc4','#74b9ff','#a29bfe','#fd79a8','#00b894','#6c5ce7','#b2bec3'],
-    daysToDue: 90
+
+    // 获取当前分类列表（从 localStorage 读取，若无则用默认）
+    getCategories() {
+        const stored = localStorage.getItem('customCategories');
+        return stored ? JSON.parse(stored) : [...this.defaultCategories];
+    },
+    // 保存分类列表
+    setCategories(cats) {
+        localStorage.setItem('customCategories', JSON.stringify(cats));
+    },
+    // 重置为默认分类
+    resetCategories() {
+        localStorage.removeItem('customCategories');
+    }
 };
