@@ -40,16 +40,18 @@ const App = {
         document.querySelectorAll('#adminView .tab-nav button').forEach(b => b.classList.remove('active'));
         const btn = document.querySelector(`#adminView .tab-nav button[data-tab="${tab}"]`);
         if (btn) btn.classList.add('active');
-        switch(tab) {
-            case 'dashboard': Admin.showDashboard(); break;
-            case 'books': Admin.loadBooksAdmin(); break;
-            case 'records': Admin.loadRecords(); break;
-            case 'overdue': Admin.loadOverdue(); break;
-            case 'import': Admin.showImport(); break;
-            case 'export': Admin.showExport(); break;
-            case 'qrcode': Admin.showQRCode(); break;
-            case 'settings': Admin.showSettings(); break;
-        }
+    switch(tab) {
+    case 'dashboard': Admin.showDashboard(); break;
+    case 'books': Admin.loadBooksAdmin(); break;
+    case 'current': Admin.showCurrentBorrows(); break;   // 新增
+    case 'records': Admin.loadRecords(); break;
+    case 'overdue': Admin.loadOverdue(); break;
+    case 'import': Admin.showImport(); break;
+    case 'export': Admin.showExport(); break;
+    case 'batchcover': Admin.showBatchCover(); break;    // 新增
+    case 'qrcode': Admin.showQRCode(); break;
+    case 'settings': Admin.showSettings(); break;
+}
     }
 };
 
