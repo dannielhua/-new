@@ -1,8 +1,7 @@
 const App = {
     currentView: 'home',
     init() {
-        // 初始化封面开关状态
-        document.getElementById('coverSwitch').checked = localStorage.getItem('showCover') !== 'false';
+        // 初始化时不再操作 coverSwitch（已移至管理员后台）
         API.getAdminPasswordHash().then(async (hash) => {
             if (!hash) await API.setAdminPasswordHash(await Utils.hashPassword('admin123'));
         });
@@ -69,7 +68,7 @@ const App = {
             case 'qrcode': Admin.showQRCode(); break;
             case 'settings': Admin.showSettings(); break;
         }
-    },
+    }
 };
 
 document.querySelector('#adminView .tab-nav').addEventListener('click', e => {
