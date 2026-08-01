@@ -22,15 +22,28 @@
         <div class="sidebar-card" onclick="App.showNotice()">
             <div class="icon">📖</div><h3>借还书须知</h3>
         </div>
+        <div class="sidebar-card" onclick="App.showMyBorrows()">
+            <div class="icon">🔍</div><h3>我的借阅</h3>
+        </div>
         <div class="sidebar-card" onclick="App.switchToBookList()">
             <div class="icon">📚</div><h3>图书查询</h3>
         </div>
         <div class="sidebar-card" onclick="App.openAdmin()">
             <div class="icon">⚙️</div><h3>管理</h3>
         </div>
+        <!-- 封面开关 -->
+        <div class="sidebar-card toggle-card">
+            <div class="icon">🖼️</div>
+            <h3>封面显示</h3>
+            <label class="switch">
+                <input type="checkbox" id="coverSwitch" checked onchange="App.toggleCover()">
+                <span class="slider round"></span>
+            </label>
+        </div>
     </div>
 </div>
 
+<!-- 借还书须知弹窗 -->
 <div id="noticeModal" class="modal-overlay hidden">
     <div class="modal">
         <h2>📖 借还书须知</h2>
@@ -43,6 +56,20 @@
     </div>
 </div>
 
+<!-- 我的借阅弹窗 -->
+<div id="myBorrowsModal" class="modal-overlay hidden">
+    <div class="modal">
+        <h2>📋 我的借阅</h2>
+        <div class="form-group">
+            <input type="text" id="searchBorrowerName" placeholder="请输入您的姓名">
+        </div>
+        <button class="btn" onclick="App.lookupMyBorrows()">查询</button>
+        <div id="myBorrowsResult" style="margin-top:16px; text-align:left;"></div>
+        <button class="btn btn-outline" onclick="document.getElementById('myBorrowsModal').classList.add('hidden')">关闭</button>
+    </div>
+</div>
+
+<!-- 管理员登录弹窗 -->
 <div id="loginModal" class="modal-overlay hidden">
     <div class="modal">
         <h3>🔑 管理员登录</h3>
@@ -52,21 +79,23 @@
     </div>
 </div>
 
+<!-- 管理员后台 -->
 <div id="adminView" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; overflow-y:auto; padding:24px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);">
     <button class="btn btn-danger" style="float:right;" onclick="App.adminLogout()">退出</button>
     <h2>📊 管理员后台</h2>
-   <div class="tab-nav" style="margin-top:12px;">
-    <button class="active" data-tab="dashboard">📈 统计</button>
-    <button data-tab="books">📚 图书管理</button>
-    <button data-tab="current">📋 当前借出</button>
-    <button data-tab="records">📜 借阅历史</button>
-    <button data-tab="overdue">⚠️ 逾期</button>
-    <button data-tab="import">📤 导入</button>
-    <button data-tab="export">📥 导出</button>
-    <button data-tab="batchcover">🖼️ 批量封面</button>
-    <button data-tab="qrcode">📱 二维码</button>
-    <button data-tab="settings">⚙️ 设置</button>
-</div>
+    <div class="tab-nav" style="margin-top:12px;">
+        <button class="active" data-tab="dashboard">📈 统计</button>
+        <button data-tab="books">📚 图书管理</button>
+        <button data-tab="current">📋 当前借出</button>
+        <button data-tab="records">📜 借阅历史</button>
+        <button data-tab="overdue">⚠️ 逾期</button>
+        <button data-tab="import">📤 导入</button>
+        <button data-tab="export">📥 导出</button>
+        <button data-tab="batchcover">🖼️ 批量封面</button>
+        <button data-tab="categories">🏷️ 分类管理</button>
+        <button data-tab="qrcode">📱 二维码</button>
+        <button data-tab="settings">⚙️ 设置</button>
+    </div>
     <div id="adminContent"></div>
 </div>
 
