@@ -113,3 +113,19 @@ tr:hover { background: rgba(255,255,255,0.15); }
 .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--primary); }
 input:checked + .slider:before { transform: translateX(26px); }
+/* 修复输入框文字颜色 */
+.modal input {
+    color: #333 !important;
+    background: #fff !important;
+    border: 1px solid #ccc;
+}
+.modal input::placeholder {
+    color: #999 !important;
+}
+.card-white input, .card-white textarea {
+    color: #333 !important;
+    background: rgba(255,255,255,0.9);
+}
+.card-white input::placeholder, .card-white textarea::placeholder {
+    color: #888 !important;
+}
