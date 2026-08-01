@@ -36,60 +36,21 @@ const Admin = {
         html += '</tbody></table>';
         document.getElementById('adminContent').innerHTML = html;
     },
-    // 替换 admin.js 中的 showAddForm 函数
-showAddForm(book = null) {
-    const isEdit = !!book;
-    let html = `<h3>${isEdit ? '编辑' : '新增'}图书</h3>
-    <div class="form-group"><input id="editCode" placeholder="图书编号 (如 BK001)" value="${isEdit ? book.code : ''}" ${isEdit ? 'disabled' : ''}></div>
-    <div class="form-group"><input id="editTitle" placeholder="书名" value="${isEdit ? book.title : ''}"></div>
-    <div class="form-group"><input id="editAuthor" placeholder="作者" value="${isEdit ? (book.author || '') : ''}"></div>
-    <div class="form-group"><select id="editCategory">${Utils.categories.map(c => `<option ${(book && book.category === c) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
-    <div class="form-group"><input id="editCover" placeholder="封面图片URL (可留空)" value="${isEdit ? (book.cover_url || '') : ''}"></div>
-    <div class="form-group">
-        <label>上传封面图片 (可选)</label>
-        <input type="file" id="editCoverFile" accept="image/*" onchange="Admin.uploadCover()">
-    </div>
-    <button class="btn" onclick="Admin.saveBook('${isEdit ? book.code : ''}')">保存</button>`;
-    document.getElementById('adminContent').innerHTML = html;
-},
-
-// 在 admin.js 末尾新增 uploadCover 函数
-async uploadCover() {
-    const fileInput = document.getElementById('editCoverFile');
-    const file = fileInput.files[0];
-    if (!file) return;
-
-    // 优先使用已填写的编号，若没有则使用时间戳
-    let code = document.getElementById('editCode')?.value.trim();
-    if (!code) {
-        code = 'temp_' + Date.now();
-    }
-    const ext = file.name.split('.').pop();
-    const fileName = `${code}.${ext}`;
-
-    try {
-        Utils.toast('正在上传封面...', 'info');
-        const { data, error } = await mySupabase.storage
-            .from('book-covers')          // 确保 Supabase 中有这个桶，且公开
-            .upload(fileName, file, {
-                cacheControl: '3600',
-                upsert: true
-            });
-
-        if (error) throw error;
-
-        // 获取公开访问 URL
-        const { data: publicUrlData } = mySupabase.storage
-            .from('book-covers')
-            .getPublicUrl(fileName);
-
-        document.getElementById('editCover').value = publicUrlData.publicUrl;
-        Utils.toast('封面上传成功！', 'success');
-    } catch (err) {
-        console.error('上传封面失败:', err);
-        Utils.toast('上传封面失败: ' + err.message, 'error');
-    }
-},
+    showAddForm(book = null) {
+        const isEdit = !!book;
+        let html = `<h3>${isEdit ? '编辑' : '新增'}图书</h3>
+        <div class="form-group"><input id="editCode" placeholder="图书编号 (例如 BK001)" value="${isEdit ? book.code : ''}" ${isEdit ? 'disabled' : ''}></div>
+        <div class="form-group"><input id="editTitle" placeholder="书名 *必填" value="${isEdit ? book.title : ''}"></div>
+        <div class="form-group"><input id="editAuthor" placeholder="作者" value="${isEdit ? (book.author || '') : ''}"></div>
+        <div class="form-group"><select id="editCategory">${Utils.categories.map(c => `<option ${(book && book.category === c) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div class="form-group"><input id="editCover" placeholder="封面图片URL (可留空)" value="${isEdit ? (book.cover_url || '') : ''}"></div>
+        <div class="form-group">
+            <label>上传封面图片 (可选)</label>
+            <input type="file" id="editCoverFile" accept="image/*" onchange="Admin.uploadCover()">
+        </div>
+        <button class="btn" onclick="Admin.saveBook('${isEdit ? book.code : ''}')">保存</button>`;
+        document.getElementById('adminContent').innerHTML = html;
+    },
     editBook(code) {
         API.getBookByCode(code).then(book => this.showAddForm(book));
     },
@@ -116,14 +77,41 @@ async uploadCover() {
         Utils.toast('已删除', 'success');
         this.loadBooksAdmin();
     },
+    // 一键查看当前借出
+    async showCurrentBorrows() {
+        const active = await API.getActiveBorrows();
+        let html = `<h3>📋 当前借出 (${active.length}本)</h3>`;
+        if (active.length === 0) {
+            html += '<p>目前没有借出的书。</p>';
+        } else {
+            html += `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>分类</th><th>借书日期</th><th>应还日期</th></tr></thead><tbody>`;
+            // 获取图书信息以显示分类
+            const books = await API.getBooks();
+            const bookMap = {};
+            books.forEach(b => { bookMap[b.code] = b; });
+            active.forEach(r => {
+                const book = bookMap[r.book_code] || {};
+                html += `<tr>
+                    <td>${Utils.esc(r.book_code)}</td>
+                    <td>${Utils.esc(book.title || r.book_name)}</td>
+                    <td>${Utils.esc(r.borrower_name)}</td>
+                    <td>${Utils.esc(book.category || '')}</td>
+                    <td>${r.borrow_date}</td>
+                    <td>${r.due_date}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+        }
+        document.getElementById('adminContent').innerHTML = html;
+    },
     async loadRecords() {
         const records = await API.getAllRecords();
         let html = `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>借书日期</th><th>应还日期</th><th>归还日期</th><th>操作</th></tr></thead><tbody>`;
         records.forEach(r => {
             html += `<tr>
-                <td>${Utils.esc(r.book_code)}</td><td>${Utils.esc(r.book_name || '')}</td>
+                <td>${Utils.esc(r.book_code)}</td><td>${Utils.esc(r.book_name||'')}</td>
                 <td>${Utils.esc(r.borrower_name)}</td><td>${r.borrow_date}</td>
-                <td>${r.due_date}</td><td>${r.return_date || '未还'}</td>
+                <td>${r.due_date}</td><td>${r.return_date||'未还'}</td>
                 <td><button class="btn btn-danger" onclick="Admin.deleteRecord(${r.id})">🗑 删除</button></td>
             </tr>`;
         });
@@ -145,7 +133,7 @@ async uploadCover() {
         else {
             html += '<table><tr><th>编号</th><th>书名</th><th>借阅人</th><th>应还日期</th></tr>';
             overdue.forEach(r => {
-                html += `<tr><td>${Utils.esc(r.book_code)}</td><td>${Utils.esc(r.book_name || '')}</td><td>${Utils.esc(r.borrower_name)}</td><td>${r.due_date}</td></tr>`;
+                html += `<tr><td>${Utils.esc(r.book_code)}</td><td>${Utils.esc(r.book_name||'')}</td><td>${Utils.esc(r.borrower_name)}</td><td>${r.due_date}</td></tr>`;
             });
             html += '</table>';
         }
@@ -195,15 +183,81 @@ async uploadCover() {
         const active = await API.getActiveBorrows();
         const map = {};
         active.forEach(r => { map[r.book_code] = r; });
-        const ws_data = [['编号', '书名', '作者', '分类', '状态', '借阅人', '借书日期', '应还日期']];
+        const ws_data = [['编号','书名','作者','分类','状态','借阅人','借书日期','应还日期']];
         books.forEach(b => {
             const br = map[b.code] || {};
-            ws_data.push([b.code, b.title, b.author, b.category, b.status === 'available' ? '在馆' : '借出', br.borrower_name || '', br.borrow_date || '', br.due_date || '']);
+            ws_data.push([b.code, b.title, b.author, b.category, b.status==='available'?'在馆':'借出', br.borrower_name||'', br.borrow_date||'', br.due_date||'']);
         });
         const ws = XLSX.utils.aoa_to_sheet(ws_data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, '图书库存');
         XLSX.writeFile(wb, '图书库存.xlsx');
+    },
+    // 批量上传封面
+    showBatchCover() {
+        document.getElementById('adminContent').innerHTML = `
+            <h3>🖼️ 批量上传封面</h3>
+            <p>选择多张图片，文件名必须与图书编号相同（例如 BK001.jpg）。</p>
+            <input type="file" id="batchCoverFiles" accept="image/*" multiple style="margin-bottom:12px;">
+            <button class="btn" onclick="Admin.batchUploadCovers()">开始上传</button>
+            <div id="batchResult" style="margin-top:12px;"></div>`;
+    },
+    async batchUploadCovers() {
+        const files = document.getElementById('batchCoverFiles').files;
+        if (files.length === 0) {
+            Utils.toast('请选择图片文件', 'error');
+            return;
+        }
+        let success = 0, fail = 0;
+        const resultDiv = document.getElementById('batchResult');
+        resultDiv.innerHTML = '正在上传...';
+        for (const file of files) {
+            const code = file.name.replace(/\.[^/.]+$/, ""); // 去掉扩展名
+            try {
+                const { data, error } = await mySupabase.storage
+                    .from('book-covers')
+                    .upload(`${code}.jpg`, file, { upsert: true });
+                if (error) throw error;
+                const { data: publicUrlData } = mySupabase.storage
+                    .from('book-covers')
+                    .getPublicUrl(`${code}.jpg`);
+                // 更新数据库
+                await API.updateBook(code, { cover_url: publicUrlData.publicUrl });
+                success++;
+            } catch (err) {
+                console.error(`封面 ${code} 上传失败:`, err);
+                fail++;
+            }
+        }
+        resultDiv.innerHTML = `<p style="color:green">上传完成：成功 ${success} 本，失败 ${fail} 本</p>`;
+        Utils.toast(`成功 ${success} 本，失败 ${fail} 本`, success > 0 ? 'success' : 'error');
+    },
+    // 单张上传（在添加/编辑表单中使用）
+    async uploadCover() {
+        const fileInput = document.getElementById('editCoverFile');
+        const file = fileInput.files[0];
+        if (!file) return;
+        let code = document.getElementById('editCode')?.value.trim();
+        if (!code) {
+            code = 'temp_' + Date.now();
+        }
+        const ext = file.name.split('.').pop();
+        const fileName = `${code}.${ext}`;
+        try {
+            Utils.toast('正在上传封面...', 'info');
+            const { data, error } = await mySupabase.storage
+                .from('book-covers')
+                .upload(fileName, file, { upsert: true });
+            if (error) throw error;
+            const { data: publicUrlData } = mySupabase.storage
+                .from('book-covers')
+                .getPublicUrl(fileName);
+            document.getElementById('editCover').value = publicUrlData.publicUrl;
+            Utils.toast('封面上传成功！', 'success');
+        } catch (err) {
+            console.error('上传封面失败:', err);
+            Utils.toast('上传封面失败: ' + err.message, 'error');
+        }
     },
     showQRCode() {
         const savedUrl = localStorage.getItem('qrBaseUrl') || window.location.origin + '/?code=';
@@ -225,10 +279,10 @@ async uploadCover() {
         books.forEach(b => {
             const content = includeUrl ? baseUrl + b.code : b.code;
             const div = document.createElement('div'); div.className = 'qr-item';
-            div.style.background = '#fff'; div.style.padding = '8px'; div.style.borderRadius = '8px'; div.style.textAlign = 'center';
+            div.style.background='#fff'; div.style.padding='8px'; div.style.borderRadius='8px'; div.style.textAlign='center';
             div.innerHTML = `<p>${Utils.esc(b.code)}<br>${Utils.esc(b.title)}</p>`;
             const canvas = document.createElement('canvas');
-            QRCode.toCanvas(canvas, content, { width: 120, margin: 1 }, err => { if (err) console.warn(err); });
+            QRCode.toCanvas(canvas, content, { width: 120, margin: 1 }, err => { if(err) console.warn(err); });
             canvas.style.background = '#fff';
             div.appendChild(canvas);
             container.appendChild(div);
@@ -270,13 +324,13 @@ async uploadCover() {
         const old = document.getElementById('oldPwd').value;
         const newPwd = document.getElementById('newPwd').value;
         const confirmPwd = document.getElementById('confirmPwd').value;
-        if (!old || !newPwd) return Utils.toast('请填写完整', 'error');
-        if (newPwd !== confirmPwd) return Utils.toast('两次不一致', 'error');
+        if (!old || !newPwd) return Utils.toast('请填写完整','error');
+        if (newPwd !== confirmPwd) return Utils.toast('两次不一致','error');
         const hash = await API.getAdminPasswordHash();
-        if (!hash || !(await Utils.verifyPassword(old, hash))) return Utils.toast('旧密码错误', 'error');
+        if (!hash || !(await Utils.verifyPassword(old, hash))) return Utils.toast('旧密码错误','error');
         const newHash = await Utils.hashPassword(newPwd);
         await API.setAdminPasswordHash(newHash);
-        Utils.toast('密码修改成功', 'success');
+        Utils.toast('密码修改成功','success');
         App.adminLogout();
     }
 };
