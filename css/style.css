@@ -80,8 +80,7 @@ tr:hover { background: rgba(255,255,255,0.15); }
     .sidebar-card { flex: 1; min-width: 120px; }
     .church-header img { max-width: 350px; }
 }
-
-/* 白色半透明卡片（用于图书查询、借还书详情） */
+/* 白色半透明卡片 */
 .card-white {
     background: rgba(255, 255, 255, 0.85) !important;
     backdrop-filter: blur(8px);
@@ -96,56 +95,21 @@ tr:hover { background: rgba(255,255,255,0.15); }
 .card-white .badge-borrowed { background: #fef3c7; color: #92400e; }
 .card-white input { color: #333; background: rgba(255,255,255,0.8); border-color: #ccc; }
 .card-white .back-btn { color: var(--primary); text-shadow: none; }
-
-/* 修复管理员后台文字颜色 */
-#adminView, #adminView * {
-    color: #222 !important;
-    text-shadow: none !important;
-}
-#adminView .btn, #adminView .btn-danger, #adminView .btn-outline {
-    color: #fff !important;
-}
-#adminView .tab-nav button {
-    color: #333 !important;
-}
-#adminView .tab-nav button.active {
-    color: #fff !important;
-}
-#adminView table {
-    background: rgba(255,255,255,0.8) !important;
-    color: #222 !important;
-}
-#adminView th {
-    background: rgba(255,255,255,0.9) !important;
-    color: #111 !important;
-}
+/* 管理员后台文字 */
+#adminView, #adminView * { color: #222 !important; text-shadow: none !important; }
+#adminView .btn, #adminView .btn-danger, #adminView .btn-outline { color: #fff !important; }
+#adminView .tab-nav button { color: #333 !important; }
+#adminView .tab-nav button.active { color: #fff !important; }
+#adminView table { background: rgba(255,255,255,0.8) !important; color: #222 !important; }
+#adminView th { background: rgba(255,255,255,0.9) !important; color: #111 !important; }
 #adminView .badge-available { background: #d1fae5; color: #065f46 !important; }
 #adminView .badge-borrowed { background: #fef3c7; color: #92400e !important; }
-#adminView .stat-card.dashboard {
-    background: rgba(255,255,255,0.9) !important;
-    color: #333 !important;
-}
-#adminView .stat-card.dashboard .stat-value {
-    color: var(--primary) !important;
-}
-/* 图书查询页面文字改为深色 */
-.card-white .book-card,
-.card-white .book-card strong,
-.card-white .book-card .meta,
-.card-white .book-card .info div,
-.card-white .book-card .status {
-    color: #222 !important;
-    text-shadow: none !important;
-}
-.card-white .category-section h3 {
-    color: #222 !important;
-    text-shadow: none !important;
-    background: rgba(0,0,0,0.05);
-}
-.card-white .book-row {
-    color: #222 !important;
-    text-shadow: none !important;
-}
-.card-white .book-row span {
-    color: #222 !important;
-}
+#adminView .stat-card.dashboard { background: rgba(255,255,255,0.9) !important; color: #333 !important; }
+#adminView .stat-card.dashboard .stat-value { color: var(--primary) !important; }
+/* 封面开关 */
+.switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--primary); }
+input:checked + .slider:before { transform: translateX(26px); }
