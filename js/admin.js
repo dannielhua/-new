@@ -212,15 +212,24 @@ const Admin = {
         const resultDiv = document.getElementById('batchResult');
         resultDiv.innerHTML = '正在上传...';
         for (const file of files) {
-            const code = file.name.replace(/\.[^/.]+$/, ""); // 去掉扩展名
-            try {
-                const { data, error } = await mySupabase.storage
-                    .from('book-covers')
-                    .upload(`${code}.jpg`, file, { upsert: true });
-                if (error) throw error;
-                const { data: publicUrlData } = mySupabase.storage
-                    .from('book-covers')
-                    .getPublicUrl(`${code}.jpg`);
+    const code = file.name.replace(/\.[^/.]+$/, ""); // 去掉扩展名
+    const ext = file.name.split('.').pop().toLowerCase(); // 获取扩展名
+    const fileName = `${code}.${ext}`; // 正确拼接
+    try {
+        const { data, error } = await mySupabase.storage
+            .from('book-covers')
+            .upload(fileName, file, { upsert: true });
+        if (error) throw error;
+        const { data: publicUrlData } = mySupabase.storage
+            .from('book-covers')
+            .getPublicUrl(fileName);
+        await API.updateBook(code, { cover_url: publicUrlData.publicUrl });
+        success++;
+    } catch (err) {
+        console.error(`封面 ${code} 上传失败:`, err);
+        fail++;
+    }
+}
                 // 更新数据库
                 await API.updateBook(code, { cover_url: publicUrlData.publicUrl });
                 success++;
