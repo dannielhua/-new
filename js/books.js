@@ -1,37 +1,25 @@
 const Books = {
-    async showHome() {
-        // 首页保持透明背景
-        document.getElementById('dynamicContent').parentElement.classList.remove('card-white');
-        const books = await API.getBooks();
-        const total = books.length;
-        const available = books.filter(b => b.status === 'available').length;
-        const borrowed = total - available;
-        const today = new Date().toISOString().split('T')[0];
-        const active = await API.getActiveBorrows();
-        const overdue = active.filter(r => r.due_date < today).length;
-        const counts = {};
-        Utils.categories.forEach(c => counts[c] = 0);
-        let uncategorized = 0;
-        books.forEach(b => {
-            if (Utils.categories.includes(b.category)) counts[b.category]++;
-            else uncategorized++;
-        });
-        let html = `
-            <div class="stats-row">
-                <div class="stat-card"><div class="stat-icon">📚</div><div class="stat-value">${total}</div><div class="stat-label">总藏书</div></div>
-                <div class="stat-card"><div class="stat-icon">🟢</div><div class="stat-value">${available}</div><div class="stat-label">可借</div></div>
-                <div class="stat-card"><div class="stat-icon">🟡</div><div class="stat-value">${borrowed}</div><div class="stat-label">借出</div></div>
-                <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">${overdue}</div><div class="stat-label">逾期</div></div>
-            </div>
-            <h3 style="margin-bottom:12px;color:#fff;">📂 图书分类</h3>
-            <div class="category-grid">
-        `;
-        Utils.categories.forEach((c, i) => {
-            html += `<div class="cat-card" style="background:${Utils.catColors[i]}" onclick="App.switchToBookList('${c}')">${c}<br><small>${counts[c]}本</small></div>`;
-        });
-        html += `<div class="cat-card" style="background:#b2bec3" onclick="App.switchToBookList('未分类')">未分类<br><small>${uncategorized}本</small></div></div>`;
-        document.getElementById('dynamicContent').innerHTML = html;
-    },
+async showHome() {
+    // 首页保持透明背景
+    document.getElementById('dynamicContent').parentElement.classList.remove('card-white');
+    const books = await API.getBooks();
+    const counts = {};
+    Utils.categories.forEach(c => counts[c] = 0);
+    let uncategorized = 0;
+    books.forEach(b => {
+        if (Utils.categories.includes(b.category)) counts[b.category]++;
+        else uncategorized++;
+    });
+    let html = `
+        <h3 style="margin-bottom:12px;color:#fff;">📂 图书分类</h3>
+        <div class="category-grid">
+    `;
+    Utils.categories.forEach((c, i) => {
+        html += `<div class="cat-card" style="background:${Utils.catColors[i]}" onclick="App.switchToBookList('${c}')">${c}<br><small>${counts[c]}本</small></div>`;
+    });
+    html += `<div class="cat-card" style="background:#b2bec3" onclick="App.switchToBookList('未分类')">未分类<br><small>${uncategorized}本</small></div></div>`;
+    document.getElementById('dynamicContent').innerHTML = html;
+},
     async switchToBookList(category) {
         // 切换到图书查询，背景变为白色
         document.getElementById('dynamicContent').parentElement.classList.add('card-white');
