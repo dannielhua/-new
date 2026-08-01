@@ -77,7 +77,6 @@ const Admin = {
         Utils.toast('已删除', 'success');
         this.loadBooksAdmin();
     },
-    // 一键查看当前借出
     async showCurrentBorrows() {
         const active = await API.getActiveBorrows();
         let html = `<h3>📋 当前借出 (${active.length}本)</h3>`;
@@ -85,7 +84,6 @@ const Admin = {
             html += '<p>目前没有借出的书。</p>';
         } else {
             html += `<table><thead><tr><th>编号</th><th>书名</th><th>借阅人</th><th>分类</th><th>借书日期</th><th>应还日期</th></tr></thead><tbody>`;
-            // 获取图书信息以显示分类
             const books = await API.getBooks();
             const bookMap = {};
             books.forEach(b => { bookMap[b.code] = b; });
@@ -193,7 +191,6 @@ const Admin = {
         XLSX.utils.book_append_sheet(wb, ws, '图书库存');
         XLSX.writeFile(wb, '图书库存.xlsx');
     },
-    // 批量上传封面
     showBatchCover() {
         document.getElementById('adminContent').innerHTML = `
             <h3>🖼️ 批量上传封面</h3>
@@ -212,25 +209,17 @@ const Admin = {
         const resultDiv = document.getElementById('batchResult');
         resultDiv.innerHTML = '正在上传...';
         for (const file of files) {
-    const code = file.name.replace(/\.[^/.]+$/, ""); // 去掉扩展名
-    const ext = file.name.split('.').pop().toLowerCase(); // 获取扩展名
-    const fileName = `${code}.${ext}`; // 正确拼接
-    try {
-        const { data, error } = await mySupabase.storage
-            .from('book-covers')
-            .upload(fileName, file, { upsert: true });
-        if (error) throw error;
-        const { data: publicUrlData } = mySupabase.storage
-            .from('book-covers')
-            .getPublicUrl(fileName);
-        await API.updateBook(code, { cover_url: publicUrlData.publicUrl });
-        success++;
-    } catch (err) {
-        console.error(`封面 ${code} 上传失败:`, err);
-        fail++;
-    }
-}
-                // 更新数据库
+            const code = file.name.replace(/\.[^/.]+$/, "");
+            const ext = file.name.split('.').pop().toLowerCase();
+            const fileName = `${code}.${ext}`;
+            try {
+                const { data, error } = await mySupabase.storage
+                    .from('book-covers')
+                    .upload(fileName, file, { upsert: true });
+                if (error) throw error;
+                const { data: publicUrlData } = mySupabase.storage
+                    .from('book-covers')
+                    .getPublicUrl(fileName);
                 await API.updateBook(code, { cover_url: publicUrlData.publicUrl });
                 success++;
             } catch (err) {
@@ -241,16 +230,24 @@ const Admin = {
         resultDiv.innerHTML = `<p style="color:green">上传完成：成功 ${success} 本，失败 ${fail} 本</p>`;
         Utils.toast(`成功 ${success} 本，失败 ${fail} 本`, success > 0 ? 'success' : 'error');
     },
-    // 单张上传（在添加/编辑表单中使用）
     async uploadCover() {
         const fileInput = document.getElementById('editCoverFile');
         const file = fileInput.files[0];
         if (!file) return;
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            Utils.toast('仅支持 JPG、PNG、WebP、GIF 格式', 'error');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            Utils.toast('图片大小不能超过 2MB', 'error');
+            return;
+        }
         let code = document.getElementById('editCode')?.value.trim();
         if (!code) {
             code = 'temp_' + Date.now();
         }
-        const ext = file.name.split('.').pop();
+        const ext = file.name.split('.').pop().toLowerCase();
         const fileName = `${code}.${ext}`;
         try {
             Utils.toast('正在上传封面...', 'info');
