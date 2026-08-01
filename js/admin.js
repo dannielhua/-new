@@ -1,21 +1,43 @@
 const Admin = {
-    async showDashboard() {
-        const books = await API.getBooks();
-        const total = books.length;
-        const available = books.filter(b => b.status === 'available').length;
-        const borrowed = total - available;
-        const today = new Date().toISOString().split('T')[0];
-        const active = await API.getActiveBorrows();
-        const overdue = active.filter(r => r.due_date < today).length;
-        document.getElementById('adminContent').innerHTML = `
-            <div class="stats-row">
-                <div class="stat-card dashboard"><div class="stat-icon">📚</div><div class="stat-value">${total}</div><div class="stat-label">总藏书</div></div>
-                <div class="stat-card dashboard"><div class="stat-icon">🟢</div><div class="stat-value">${available}</div><div class="stat-label">可借</div></div>
-                <div class="stat-card dashboard"><div class="stat-icon">🟡</div><div class="stat-value">${borrowed}</div><div class="stat-label">借出</div></div>
-                <div class="stat-card dashboard"><div class="stat-icon">⚠️</div><div class="stat-value">${overdue}</div><div class="stat-label">逾期</div></div>
-            </div>
-            <p>欢迎进入管理员后台。</p>`;
-    },
+ async showDashboard() {
+    const books = await API.getBooks();
+    const total = books.length;
+    const available = books.filter(b => b.status === 'available').length;
+    const borrowed = total - available;
+    const today = new Date().toISOString().split('T')[0];
+    const active = await API.getActiveBorrows();
+    const overdue = active.filter(r => r.due_date < today).length;
+    const showCover = localStorage.getItem('showCover') !== 'false'; // 默认开启
+    document.getElementById('adminContent').innerHTML = `
+        <div class="stats-row">
+            <div class="stat-card dashboard"><div class="stat-icon">📚</div><div class="stat-value">${total}</div><div class="stat-label">总藏书</div></div>
+            <div class="stat-card dashboard"><div class="stat-icon">🟢</div><div class="stat-value">${available}</div><div class="stat-label">可借</div></div>
+            <div class="stat-card dashboard"><div class="stat-icon">🟡</div><div class="stat-value">${borrowed}</div><div class="stat-label">借出</div></div>
+            <div class="stat-card dashboard"><div class="stat-icon">⚠️</div><div class="stat-value">${overdue}</div><div class="stat-label">逾期</div></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; margin: 20px 0;">
+            <span>🖼️ 显示图书封面</span>
+            <label class="switch">
+                <input type="checkbox" id="adminCoverSwitch" ${showCover ? 'checked' : ''} onchange="Admin.toggleCover()">
+                <span class="slider round"></span>
+            </label>
+        </div>
+        <p>欢迎进入管理员后台。</p>`;
+},
+
+// 新增 toggleCover 方法
+toggleCover() {
+    const show = document.getElementById('adminCoverSwitch').checked;
+    localStorage.setItem('showCover', show);
+    Utils.toast(`封面已${show ? '显示' : '隐藏'}`, 'info');
+    // 刷新图书列表视图（如果当前是图书查询页）
+    if (App.currentView === 'bookList') {
+        Books.switchToBookList();
+    } else if (App.currentView === 'detail') {
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (code) Borrow.showBookDetail(code);
+    }
+},
     async loadBooksAdmin() {
         const books = await API.getBooks();
         const active = await API.getActiveBorrows();
