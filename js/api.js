@@ -52,16 +52,14 @@ const API = {
         .from('settings')
         .select('value')
         .eq('key', 'admin_password')
-        .single()
-        .headers({ 'Accept': 'application/json' });  // 添加请求头
+        .single();
     if (error) throw error;
     return data ? data.value : null;
 },
 async setAdminPasswordHash(hash) {
     const { error } = await mySupabase
         .from('settings')
-        .upsert({ key: 'admin_password', value: hash }, { onConflict: 'key' })
-        .headers({ 'Accept': 'application/json' });  // 添加请求头
+        .upsert({ key: 'admin_password', value: hash }, { onConflict: 'key' });
     if (error) throw error;
 }
 };
