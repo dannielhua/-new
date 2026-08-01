@@ -48,10 +48,20 @@ const API = {
         await mySupabase.from('borrow_records').update({ return_date: date }).eq('book_code', code).is('return_date', null);
     },
     async getAdminPasswordHash() {
-        const { data } = await mySupabase.from('settings').select('value').eq('key', 'admin_password').single();
-        return data ? data.value : null;
-    },
-    async setAdminPasswordHash(hash) {
-        await mySupabase.from('settings').upsert({ key: 'admin_password', value: hash }, { onConflict: 'key' });
-    }
+    const { data, error } = await mySupabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'admin_password')
+        .single()
+        .headers({ 'Accept': 'application/json' });  // 添加请求头
+    if (error) throw error;
+    return data ? data.value : null;
+},
+async setAdminPasswordHash(hash) {
+    const { error } = await mySupabase
+        .from('settings')
+        .upsert({ key: 'admin_password', value: hash }, { onConflict: 'key' })
+        .headers({ 'Accept': 'application/json' });  // 添加请求头
+    if (error) throw error;
+}
 };
